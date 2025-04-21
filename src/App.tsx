@@ -8,6 +8,13 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
+import Products from "./pages/Products";
+import Orders from "./pages/Orders";
+import Deliveries from "./pages/Deliveries";
+import Reports from "./pages/Reports";
+import Invoices from "./pages/Invoices";
+import Users from "./pages/Users";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import AppLayout from "./components/Layout/AppLayout";
 
@@ -37,15 +44,14 @@ const AppRoutes = () => {
       <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
+        <Route path="productos" element={<Products />} />
         <Route path="inventario" element={<Inventory />} />
-        {/* Add other routes as needed */}
-        <Route path="productos" element={<div className="p-6">Página de Productos (En desarrollo)</div>} />
-        <Route path="pedidos" element={<div className="p-6">Página de Pedidos (En desarrollo)</div>} />
-        <Route path="entregas" element={<div className="p-6">Página de Entregas (En desarrollo)</div>} />
-        <Route path="reportes" element={<div className="p-6">Página de Reportes (En desarrollo)</div>} />
-        <Route path="facturas" element={<div className="p-6">Página de Facturas (En desarrollo)</div>} />
-        <Route path="usuarios" element={<div className="p-6">Página de Usuarios (En desarrollo)</div>} />
-        <Route path="configuracion" element={<div className="p-6">Página de Configuración (En desarrollo)</div>} />
+        <Route path="pedidos" element={<Orders />} />
+        <Route path="entregas" element={<Deliveries />} />
+        <Route path="reportes" element={<Reports />} />
+        <Route path="facturas" element={<Invoices />} />
+        <Route path="usuarios" element={<Users />} />
+        <Route path="configuracion" element={<Settings />} />
       </Route>
       
       {/* Catch-all route for 404 */}
