@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, PlusCircle, Filter, Package, ArrowUpDown } from 'lucide-react';
+import { Search, Filter, ArrowUpDown } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -25,7 +26,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -44,7 +44,7 @@ const Products: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentCategory, setCurrentCategory] = useState('all');
   const [sortField, setSortField] = useState('name');
-  const [sortOrder, setSortOrder<'asc' | 'desc'>>('asc');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [productsData, setProductsData] = useState<Product[]>([]); // Nuevo estado para productos
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
