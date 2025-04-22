@@ -1,12 +1,18 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+
+// Usuarios demo para login rápido
+const DEMO_USERS = [
+  { email: "admin@licorhub.com", password: "admin123", name: "Administrador", role: "admin" },
+  { email: "cliente@licorhub.com", password: "cliente123", name: "Cliente Demo", role: "cliente" },
+  { email: "bodeguero@licorhub.com", password: "bodeguero123", name: "Bodeguero", role: "bodeguero" },
+];
 
 interface User {
-  id: string;
-  name: string;
   email: string;
+  name: string;
   role: string;
 }
 
@@ -25,105 +31,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Cargar usuario desde localStorage al iniciar
   useEffect(() => {
-    // Check Supabase session on initial load
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session) {
-        // Fetch additional user details from your users table if needed
-        const { data: userData } = await supabase
-          .from('perfiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        if (userData) {
-          setUser({
-            id: session.user.id,
-            email: session.user.email || '',
-            name: userData.first_name && userData.last_name 
-              ? `${userData.first_name} ${userData.last_name}`
-              : session.user.email || '',
-            role: userData.role || 'user'
-          });
-        }
-      }
-      
-      setIsLoading(false);
-    };
-
-    checkSession();
-
-    // Listen for auth state changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-          const { data: userData } = await supabase
-            .from('perfiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (userData) {
-            setUser({
-              id: session.user.id,
-              email: session.user.email || '',
-              name: userData.first_name && userData.last_name 
-                ? `${userData.first_name} ${userData.last_name}`
-                : session.user.email || '',
-              role: userData.role || 'user'
-            });
-            navigate('/dashboard');
-          }
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-          navigate('/auth');
-        }
-      }
-    );
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, [navigate]);
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+    setIsLoading(false);
+  }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
+
+    // Buscar el usuario demo permitido
+    const matched = DEMO_USERS.find(
+      (u) => u.email === email && u.password === password
+    );
+    if (matched) {
+      const userPayload: User = {
+        email: matched.email,
+        name: matched.name,
+        role: matched.role,
+      };
+      setUser(userPayload);
+      localStorage.setItem("user", JSON.stringify(userPayload));
+      toast({
+        title: "Bienvenido",
+        description: `Hola, ${matched.name}`,
       });
-      
-      if (error) {
-        toast({
-          title: "Error de autenticación",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
+      navigate("/dashboard");
+    } else {
       toast({
         title: "Error de autenticación",
-        description: "Ha ocurrido un error al iniciar sesión.",
+        description: "Usuario o contraseña incorrectos.",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   };
 
-  const logout = async () => {
-    await supabase.auth.signOut();
+  const logout = () => {
     setUser(null);
-    localStorage.removeItem('user');
+    localStorage.removeItem("user");
     toast({
       title: "Sesión cerrada",
       description: "Has cerrado sesión correctamente.",
     });
-    navigate('/auth');
+    navigate("/auth");
   };
 
   return (
@@ -140,3 +94,4 @@ export const useAuth = () => {
   }
   return context;
 };
+
