@@ -1,4 +1,3 @@
-
 import { useToast } from "@/hooks/use-toast";
 import { getInventory, updateProduct } from "./inventory.service";
 
@@ -178,32 +177,43 @@ const generateOrderNumber = (): string => {
 
 // Función para buscar un cliente por ID o crear uno desde la información del usuario actual
 export const findOrCreateCustomerFromUser = (user: { id?: number; name: string; email: string; address?: string }): Customer => {
-  // Si el usuario ya tiene un ID de cliente, buscar ese cliente
+  console.log("Buscando cliente para usuario:", user);
+  
+  const customers = getCustomers();
+  let existingCustomer;
+  
+  // Si el usuario tiene un ID de cliente, buscar por ID
   if (user.id) {
-    const customers = getCustomers();
-    const existingCustomer = customers.find(c => c.id === user.id);
+    existingCustomer = customers.find(c => c.id === user.id);
     if (existingCustomer) {
+      console.log("Cliente encontrado por ID:", existingCustomer);
       return existingCustomer;
     }
   }
   
-  // Si no existe, buscar por email
-  const customers = getCustomers();
-  const existingCustomer = customers.find(c => c.email === user.email);
+  // Si no existe por ID o no tiene ID, buscar por email
+  existingCustomer = customers.find(c => c.email === user.email);
   if (existingCustomer) {
+    console.log("Cliente encontrado por email:", existingCustomer);
     return existingCustomer;
   }
   
-  // Si no existe, crear un nuevo cliente
+  // Si no existe y no tiene dirección, lanzar error
   if (!user.address) {
+    console.error("Error: Se requiere una dirección para crear un cliente", user);
     throw new Error("Se requiere una dirección para crear un cliente");
   }
   
-  return addCustomer({
+  // Si no existe, crear un nuevo cliente
+  console.log("Creando nuevo cliente:", user);
+  const newCustomer = addCustomer({
     name: user.name,
     email: user.email,
     address: user.address
   });
+  
+  console.log("Nuevo cliente creado:", newCustomer);
+  return newCustomer;
 };
 
 // Función para crear un nuevo pedido
@@ -213,6 +223,7 @@ export const createOrder = (orderData: {
   items: OrderItem[];
   warehouseSource?: string;
 }): Order => {
+  console.log("Creando pedido con datos:", orderData);
   const orders = getOrders();
   
   let customer: Customer;
@@ -224,16 +235,25 @@ export const createOrder = (orderData: {
     const existingCustomer = customers.find(c => c.id === orderData.customerId);
     
     if (!existingCustomer) {
+      console.error("Cliente no encontrado:", orderData.customerId);
       throw new Error(`Cliente con ID ${orderData.customerId} no encontrado`);
     }
     
     customer = existingCustomer;
   } else if (orderData.customer) {
     // Si se proporciona información del cliente/usuario, buscar o crear cliente
-    customer = findOrCreateCustomerFromUser(orderData.customer);
+    try {
+      customer = findOrCreateCustomerFromUser(orderData.customer);
+    } catch (error) {
+      console.error("Error al encontrar/crear cliente:", error);
+      throw error;
+    }
   } else {
+    console.error("Error: Se requiere un cliente para crear un pedido");
     throw new Error("Se requiere un cliente para crear un pedido");
   }
+
+  console.log("Cliente para el pedido:", customer);
   
   // Calcular el total del pedido
   const total = orderData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -254,7 +274,7 @@ export const createOrder = (orderData: {
     status: 'pendiente',
     items: orderData.items,
     address: customer.address,
-    warehouseSource: orderData.warehouseSource
+    warehouseSource: orderData.warehouseSource || "mainWarehouse" // Bodega por defecto si no se especifica
   };
   
   // Agregar al listado y guardar
@@ -267,13 +287,13 @@ export const createOrder = (orderData: {
     const product = inventory.find(p => p.id === item.productId);
     if (product) {
       // Restar del inventario de la bodega seleccionada
-      if (orderData.warehouseSource === "warehouse1" && product.warehouse1 >= item.quantity) {
+      if (newOrder.warehouseSource === "warehouse1" && product.warehouse1 >= item.quantity) {
         product.warehouse1 -= item.quantity;
-      } else if (orderData.warehouseSource === "warehouse2" && product.warehouse2 >= item.quantity) {
+      } else if (newOrder.warehouseSource === "warehouse2" && product.warehouse2 >= item.quantity) {
         product.warehouse2 -= item.quantity;
-      } else if (orderData.warehouseSource === "warehouse3" && product.warehouse3 >= item.quantity) {
+      } else if (newOrder.warehouseSource === "warehouse3" && product.warehouse3 >= item.quantity) {
         product.warehouse3 -= item.quantity;
-      } else if (orderData.warehouseSource === "mainWarehouse" && product.mainWarehouse >= item.quantity) {
+      } else if (newOrder.warehouseSource === "mainWarehouse" && product.mainWarehouse >= item.quantity) {
         product.mainWarehouse -= item.quantity;
       } else {
         // Si no hay suficiente stock en la bodega seleccionada

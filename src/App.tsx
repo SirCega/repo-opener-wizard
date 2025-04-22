@@ -48,6 +48,7 @@ const ProtectedRouteContent = ({
   return <>{children}</>;
 };
 
+// Separate component to wrap the entire app with providers
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>

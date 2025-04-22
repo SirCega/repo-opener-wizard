@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -21,7 +20,7 @@ export interface User {
   name: string;
   role: string;
   address?: string;
-  id?: number; // Agregar ID para los clientes
+  id?: number; // ID para los clientes
 }
 
 interface AuthContextType {
@@ -73,6 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Combinar usuarios demo con usuarios registrados
     const allUsers = getAllUsers();
+    console.log("Todos los usuarios disponibles:", allUsers);
 
     // Buscar el usuario
     const matched = allUsers.find(
@@ -80,6 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
     
     if (matched) {
+      console.log("Usuario encontrado:", matched);
       const userPayload: User = {
         email: matched.email,
         name: matched.name,
@@ -87,6 +88,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         address: matched.address,
         id: matched.id
       };
+      
+      // Asegurarse de guardar el ID si existe
+      if (matched.id) {
+        userPayload.id = matched.id;
+      }
+      
+      console.log("Usuario guardado en sesión:", userPayload);
       setUser(userPayload);
       localStorage.setItem("user", JSON.stringify(userPayload));
       toast({
@@ -107,27 +115,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const registerClient = async (userData: { email: string, password: string, name: string, address: string }) => {
     setIsLoading(true);
 
-    // Verificar si el usuario ya existe
-    const allUsers = getAllUsers();
-    const existingUser = allUsers.find(u => u.email === userData.email);
-    
-    if (existingUser) {
-      toast({
-        title: "Error de registro",
-        description: "Este correo electrónico ya está registrado.",
-        variant: "destructive",
-      });
-      setIsLoading(false);
-      return;
-    }
-
     try {
+      console.log("Registrando nuevo cliente:", userData);
+      
+      // Verificar si el usuario ya existe
+      const allUsers = getAllUsers();
+      const existingUser = allUsers.find(u => u.email === userData.email);
+      
+      if (existingUser) {
+        toast({
+          title: "Error de registro",
+          description: "Este correo electrónico ya está registrado.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       // Crear cliente en el servicio de pedidos
       const newCustomer = addCustomer({
         name: userData.name,
         email: userData.email,
         address: userData.address
       });
+
+      console.log("Nuevo cliente creado:", newCustomer);
 
       // Crear nuevo usuario
       const newUser = {
@@ -153,6 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: newUser.id
       };
 
+      console.log("Nuevo usuario guardado en sesión:", userPayload);
       setUser(userPayload);
       localStorage.setItem("user", JSON.stringify(userPayload));
       
@@ -163,12 +176,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       navigate("/dashboard");
     } catch (error) {
+      console.error("Error durante el registro:", error);
       toast({
         title: "Error de registro",
         description: "Hubo un problema al registrar el usuario.",
         variant: "destructive",
       });
-      console.error(error);
     }
     
     setIsLoading(false);
