@@ -176,18 +176,63 @@ const generateOrderNumber = (): string => {
   return `ORD-${String(lastOrderNumber + 1).padStart(3, '0')}`;
 };
 
+// Función para buscar un cliente por ID o crear uno desde la información del usuario actual
+export const findOrCreateCustomerFromUser = (user: { id?: number; name: string; email: string; address?: string }): Customer => {
+  // Si el usuario ya tiene un ID de cliente, buscar ese cliente
+  if (user.id) {
+    const customers = getCustomers();
+    const existingCustomer = customers.find(c => c.id === user.id);
+    if (existingCustomer) {
+      return existingCustomer;
+    }
+  }
+  
+  // Si no existe, buscar por email
+  const customers = getCustomers();
+  const existingCustomer = customers.find(c => c.email === user.email);
+  if (existingCustomer) {
+    return existingCustomer;
+  }
+  
+  // Si no existe, crear un nuevo cliente
+  if (!user.address) {
+    throw new Error("Se requiere una dirección para crear un cliente");
+  }
+  
+  return addCustomer({
+    name: user.name,
+    email: user.email,
+    address: user.address
+  });
+};
+
 // Función para crear un nuevo pedido
 export const createOrder = (orderData: {
-  customerId: number;
+  customerId?: number;
+  customer?: { name: string; email: string; address: string; id?: number };
   items: OrderItem[];
   warehouseSource?: string;
 }): Order => {
   const orders = getOrders();
-  const customers = getCustomers();
-  const customer = customers.find(c => c.id === orderData.customerId);
   
-  if (!customer) {
-    throw new Error(`Cliente con ID ${orderData.customerId} no encontrado`);
+  let customer: Customer;
+  
+  // Determinar el cliente para el pedido
+  if (orderData.customerId) {
+    // Si se proporciona un ID de cliente, buscar ese cliente
+    const customers = getCustomers();
+    const existingCustomer = customers.find(c => c.id === orderData.customerId);
+    
+    if (!existingCustomer) {
+      throw new Error(`Cliente con ID ${orderData.customerId} no encontrado`);
+    }
+    
+    customer = existingCustomer;
+  } else if (orderData.customer) {
+    // Si se proporciona información del cliente/usuario, buscar o crear cliente
+    customer = findOrCreateCustomerFromUser(orderData.customer);
+  } else {
+    throw new Error("Se requiere un cliente para crear un pedido");
   }
   
   // Calcular el total del pedido
@@ -389,8 +434,14 @@ export const useOrderService = () => {
     getCustomers,
     addCustomer,
     getOrders,
+    findOrCreateCustomerFromUser,
     
-    createOrder: (orderData: { customerId: number; items: OrderItem[], warehouseSource?: string }) => {
+    createOrder: (orderData: { 
+      customerId?: number; 
+      customer?: { name: string; email: string; address: string; id?: number }; 
+      items: OrderItem[]; 
+      warehouseSource?: string 
+    }) => {
       try {
         const newOrder = createOrder(orderData);
         toast({

@@ -13,6 +13,9 @@ const DEMO_USERS = [
   { email: "domiciliario@licorhub.com", password: "domiciliario123", name: "Domiciliario", role: "domiciliario" },
 ];
 
+// Clave para usuarios registrados en localStorage
+const REGISTERED_USERS_KEY = "registered_users";
+
 export interface User {
   email: string;
   name: string;
@@ -28,6 +31,7 @@ interface AuthContextType {
   isLoading: boolean;
   hasAccess: (allowedRoles: string[]) => boolean;
   registerClient: (userData: { email: string, password: string, name: string, address: string }) => Promise<void>;
+  getAllUsers: () => any[]; // Nueva función para obtener todos los usuarios
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -49,21 +53,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Cargar usuarios registrados desde localStorage
   const getRegisteredUsers = () => {
-    const storedUsers = localStorage.getItem("demo_users");
+    const storedUsers = localStorage.getItem(REGISTERED_USERS_KEY);
     return storedUsers ? JSON.parse(storedUsers) : [];
   };
 
   // Guardar usuarios registrados en localStorage
   const saveRegisteredUsers = (users: any[]) => {
-    localStorage.setItem("demo_users", JSON.stringify(users));
+    localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(users));
+  };
+  
+  // Nueva función para obtener todos los usuarios (demo + registrados)
+  const getAllUsers = () => {
+    const registeredUsers = getRegisteredUsers();
+    return [...DEMO_USERS, ...registeredUsers];
   };
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
 
     // Combinar usuarios demo con usuarios registrados
-    const registeredUsers = getRegisteredUsers();
-    const allUsers = [...DEMO_USERS, ...registeredUsers];
+    const allUsers = getAllUsers();
 
     // Buscar el usuario
     const matched = allUsers.find(
@@ -99,8 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
 
     // Verificar si el usuario ya existe
-    const registeredUsers = getRegisteredUsers();
-    const allUsers = [...DEMO_USERS, ...registeredUsers];
+    const allUsers = getAllUsers();
     const existingUser = allUsers.find(u => u.email === userData.email);
     
     if (existingUser) {
@@ -132,6 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
 
       // Guardar en localStorage para persistencia
+      const registeredUsers = getRegisteredUsers();
       registeredUsers.push(newUser);
       saveRegisteredUsers(registeredUsers);
 
@@ -199,7 +208,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading, hasAccess, registerClient }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      login, 
+      logout, 
+      isLoading, 
+      hasAccess, 
+      registerClient,
+      getAllUsers 
+    }}>
       {children}
     </AuthContext.Provider>
   );

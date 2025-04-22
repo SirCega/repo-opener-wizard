@@ -1,9 +1,8 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, PlusCircle, Filter, Users as UsersIcon, User, Shield, Mail, Lock } from 'lucide-react';
+import { Search, PlusCircle, Filter, Shield, Lock } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -40,100 +39,17 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { useAuth } from '@/hooks/useAuth';
 
-// Mock data for users
-const usersData = [
-  {
-    id: 1,
-    name: "Admin User",
-    email: "admin@licorhub.com",
-    role: "admin",
-    status: "activo",
-    createdAt: "2024-01-10",
-    lastLogin: "2024-04-20"
-  },
-  {
-    id: 2,
-    name: "Cliente Demo",
-    email: "cliente@licorhub.com",
-    role: "cliente",
-    status: "activo",
-    createdAt: "2024-01-15",
-    lastLogin: "2024-04-18"
-  },
-  {
-    id: 3,
-    name: "Oficinista Demo",
-    email: "oficinista@licorhub.com",
-    role: "oficinista",
-    status: "activo",
-    createdAt: "2024-01-20",
-    lastLogin: "2024-04-19"
-  },
-  {
-    id: 4,
-    name: "Bodeguero Demo",
-    email: "bodeguero@licorhub.com",
-    role: "bodeguero",
-    status: "activo",
-    createdAt: "2024-02-05",
-    lastLogin: "2024-04-15"
-  },
-  {
-    id: 5,
-    name: "Domiciliario Demo",
-    email: "domiciliario@licorhub.com",
-    role: "domiciliario",
-    status: "activo",
-    createdAt: "2024-02-10",
-    lastLogin: "2024-04-17"
-  },
-  {
-    id: 6,
-    name: "Juan Pérez",
-    email: "juan@example.com",
-    role: "cliente",
-    status: "activo",
-    createdAt: "2024-02-15",
-    lastLogin: "2024-04-10"
-  },
-  {
-    id: 7,
-    name: "María López",
-    email: "maria@example.com",
-    role: "cliente",
-    status: "inactivo",
-    createdAt: "2024-02-20",
-    lastLogin: "2024-03-15"
-  },
-  {
-    id: 8,
-    name: "Carlos Rodríguez",
-    email: "carlos@example.com",
-    role: "cliente",
-    status: "activo",
-    createdAt: "2024-03-01",
-    lastLogin: "2024-04-05"
-  },
-  {
-    id: 9,
-    name: "Ana Martínez",
-    email: "ana@example.com",
-    role: "cliente",
-    status: "activo",
-    createdAt: "2024-03-10",
-    lastLogin: "2024-04-12"
-  },
-  {
-    id: 10,
-    name: "Luis Torres",
-    email: "luis@example.com",
-    role: "domiciliario",
-    status: "inactivo",
-    createdAt: "2024-03-15",
-    lastLogin: "2024-03-20"
-  }
-];
+interface UserData {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+  createdAt: string;
+  lastLogin: string;
+}
 
 const Users: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -141,10 +57,26 @@ const Users: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = useState(false);
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<typeof usersData[0] | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserData | null>(null);
   const { toast } = useToast();
+  const { getAllUsers } = useAuth();
   
-  // New user form state
+  const [usersData, setUsersData] = useState<UserData[]>([]);
+  
+  useEffect(() => {
+    const allUsers = getAllUsers().map((user: any, index: number) => ({
+      id: user.id || index + 1,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      status: 'activo',
+      createdAt: user.createdAt || new Date().toISOString().split('T')[0],
+      lastLogin: user.lastLogin || new Date().toISOString().split('T')[0]
+    }));
+    
+    setUsersData(allUsers);
+  }, [getAllUsers]);
+  
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -161,7 +93,6 @@ const Users: React.FC = () => {
     (statusFilter === 'all' || user.status === statusFilter)
   );
 
-  // Count users by role
   const adminCount = usersData.filter(user => user.role === 'admin').length;
   const clienteCount = usersData.filter(user => user.role === 'cliente').length;
   const oficinistaCount = usersData.filter(user => user.role === 'oficinista').length;
@@ -183,7 +114,6 @@ const Users: React.FC = () => {
   };
 
   const handleCreateUser = () => {
-    // Validation
     if (!newUser.name || !newUser.email || !newUser.role || !newUser.password) {
       toast({
         title: "Error",
@@ -202,13 +132,11 @@ const Users: React.FC = () => {
       return;
     }
 
-    // Here you would normally add the user to your database
     toast({
       title: "Usuario creado",
       description: `${newUser.name} ha sido agregado como ${newUser.role}`
     });
 
-    // Reset form and close dialog
     setNewUser({
       name: '',
       email: '',
@@ -219,14 +147,13 @@ const Users: React.FC = () => {
     setIsNewUserDialogOpen(false);
   };
 
-  const editUser = (user: typeof usersData[0]) => {
+  const editUser = (user: UserData) => {
     setCurrentUser(user);
     setIsEditUserDialogOpen(true);
   };
 
   const handleUpdateUser = () => {
     if (currentUser) {
-      // Here you would normally update the user in your database
       toast({
         title: "Usuario actualizado",
         description: `${currentUser.name} ha sido actualizado correctamente`
@@ -235,7 +162,7 @@ const Users: React.FC = () => {
     }
   };
 
-  const handleToggleUserStatus = (user: typeof usersData[0]) => {
+  const handleToggleUserStatus = (user: UserData) => {
     const newStatus = user.status === 'activo' ? 'inactivo' : 'activo';
     toast({
       title: "Estado actualizado",
@@ -574,99 +501,96 @@ const Users: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Edit User Dialog */}
       <Dialog open={isEditUserDialogOpen} onOpenChange={setIsEditUserDialogOpen}>
-        <DialogContent>
-          {currentUser && (
-            <>
-              <DialogHeader>
-                <DialogTitle>Editar Usuario</DialogTitle>
-                <DialogDescription>
-                  Actualice la información del usuario
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-name">Nombre</Label>
-                  <Input 
-                    id="edit-name" 
-                    value={currentUser.name}
-                    onChange={(e) => setCurrentUser({...currentUser, name: e.target.value})}
-                  />
+        {currentUser && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Editar Usuario</DialogTitle>
+              <DialogDescription>
+                Actualice la información del usuario
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-name">Nombre</Label>
+                <Input 
+                  id="edit-name" 
+                  value={currentUser.name}
+                  onChange={(e) => setCurrentUser({...currentUser, name: e.target.value})}
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="edit-email">Correo Electrónico</Label>
+                <Input 
+                  id="edit-email" 
+                  type="email"
+                  value={currentUser.email}
+                  onChange={(e) => setCurrentUser({...currentUser, email: e.target.value})}
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="edit-role">Rol</Label>
+                <Select 
+                  value={currentUser.role} 
+                  onValueChange={(value) => setCurrentUser({...currentUser, role: value})}
+                >
+                  <SelectTrigger id="edit-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                    <SelectItem value="cliente">Cliente</SelectItem>
+                    <SelectItem value="oficinista">Oficinista</SelectItem>
+                    <SelectItem value="bodeguero">Bodeguero</SelectItem>
+                    <SelectItem value="domiciliario">Domiciliario</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="edit-status">Estado</Label>
+                <Select 
+                  value={currentUser.status} 
+                  onValueChange={(value) => setCurrentUser({...currentUser, status: value})}
+                >
+                  <SelectTrigger id="edit-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="activo">Activo</SelectItem>
+                    <SelectItem value="inactivo">Inactivo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="border-t pt-4">
+                <div className="flex items-center space-x-2">
+                  <Lock className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-medium">Cambio de Contraseña</h3>
                 </div>
-                
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-email">Correo Electrónico</Label>
-                  <Input 
-                    id="edit-email" 
-                    type="email"
-                    value={currentUser.email}
-                    onChange={(e) => setCurrentUser({...currentUser, email: e.target.value})}
-                  />
-                </div>
-                
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-role">Rol</Label>
-                  <Select 
-                    value={currentUser.role} 
-                    onValueChange={(value) => setCurrentUser({...currentUser, role: value})}
-                  >
-                    <SelectTrigger id="edit-role">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">Administrador</SelectItem>
-                      <SelectItem value="cliente">Cliente</SelectItem>
-                      <SelectItem value="oficinista">Oficinista</SelectItem>
-                      <SelectItem value="bodeguero">Bodeguero</SelectItem>
-                      <SelectItem value="domiciliario">Domiciliario</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-status">Estado</Label>
-                  <Select 
-                    value={currentUser.status} 
-                    onValueChange={(value) => setCurrentUser({...currentUser, status: value})}
-                  >
-                    <SelectTrigger id="edit-status">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="activo">Activo</SelectItem>
-                      <SelectItem value="inactivo">Inactivo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="border-t pt-4">
-                  <div className="flex items-center space-x-2">
-                    <Lock className="h-4 w-4 text-muted-foreground" />
-                    <h3 className="text-sm font-medium">Cambio de Contraseña</h3>
+                <p className="text-sm text-muted-foreground mt-1 mb-2">
+                  Deje estos campos en blanco si no desea cambiar la contraseña
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="new-password">Nueva Contraseña</Label>
+                    <Input id="new-password" type="password" />
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1 mb-2">
-                    Deje estos campos en blanco si no desea cambiar la contraseña
-                  </p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="new-password">Nueva Contraseña</Label>
-                      <Input id="new-password" type="password" />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="confirm-password">Confirmar Contraseña</Label>
-                      <Input id="confirm-password" type="password" />
-                    </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="confirm-password">Confirmar Contraseña</Label>
+                    <Input id="confirm-password" type="password" />
                   </div>
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsEditUserDialogOpen(false)}>Cancelar</Button>
-                <Button onClick={handleUpdateUser}>Guardar Cambios</Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditUserDialogOpen(false)}>Cancelar</Button>
+              <Button onClick={handleUpdateUser}>Guardar Cambios</Button>
+            </DialogFooter>
+          </>
+        )}
       </Dialog>
     </div>
   );
