@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -38,6 +37,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Product, TransferRequest, useInventoryService } from '@/services/inventory.service';
+import { MovementHistory } from '@/components/inventory/MovementHistory';
 
 const Inventory: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,7 +50,6 @@ const Inventory: React.FC = () => {
   const { toast } = useToast();
   const inventoryService = useInventoryService();
   
-  // Estado para el nuevo producto
   const [newProduct, setNewProduct] = useState<Omit<Product, 'id'>>({
     sku: '',
     name: '',
@@ -64,7 +63,6 @@ const Inventory: React.FC = () => {
     boxQty: 0
   });
   
-  // Estado para la transferencia
   const [transfer, setTransfer] = useState<TransferRequest>({
     productId: 0,
     sourceWarehouse: 'mainWarehouse',
@@ -72,7 +70,6 @@ const Inventory: React.FC = () => {
     quantity: 1
   });
   
-  // Cargar datos del inventario
   useEffect(() => {
     const data = inventoryService.getInventory();
     setInventoryData(data);
@@ -108,10 +105,8 @@ const Inventory: React.FC = () => {
       return 0;
     });
 
-  // Get all unique categories
   const categories = Array.from(new Set(inventoryData.map(item => item.category)));
   
-  // Calculate low stock items
   const lowStockItems = inventoryData.filter(item => {
     return (
       item.warehouse1 < item.threshold || 
@@ -120,7 +115,6 @@ const Inventory: React.FC = () => {
     );
   });
   
-  // Manejar el cambio de campos del nuevo producto
   const handleNewProductChange = (field: string, value: string | number) => {
     setNewProduct(prev => ({
       ...prev,
@@ -130,10 +124,8 @@ const Inventory: React.FC = () => {
     }));
   };
   
-  // Manejar la creación de un nuevo producto
   const handleCreateProduct = () => {
     try {
-      // Validar campos requeridos
       if (!newProduct.sku || !newProduct.name || !newProduct.category) {
         toast({
           title: "Error",
@@ -143,13 +135,10 @@ const Inventory: React.FC = () => {
         return;
       }
       
-      // Crear producto
       const createdProduct = inventoryService.addProduct(newProduct);
       
-      // Actualizar el estado local
       setInventoryData(prev => [...prev, createdProduct]);
       
-      // Cerrar diálogo y limpiar formulario
       setIsAddProductDialogOpen(false);
       setNewProduct({
         sku: '',
@@ -168,7 +157,6 @@ const Inventory: React.FC = () => {
     }
   };
   
-  // Manejar el cambio de campos de la transferencia
   const handleTransferChange = (field: keyof TransferRequest, value: any) => {
     setTransfer(prev => ({
       ...prev,
@@ -176,10 +164,8 @@ const Inventory: React.FC = () => {
     }));
   };
   
-  // Manejar la transferencia de producto
   const handleTransferProduct = () => {
     try {
-      // Validar que se seleccionó un producto
       if (!transfer.productId) {
         toast({
           title: "Error",
@@ -189,7 +175,6 @@ const Inventory: React.FC = () => {
         return;
       }
       
-      // Validar que la cantidad es mayor que 0
       if (transfer.quantity <= 0) {
         toast({
           title: "Error",
@@ -199,7 +184,6 @@ const Inventory: React.FC = () => {
         return;
       }
       
-      // Validar que origen y destino son diferentes
       if (transfer.sourceWarehouse === transfer.destinationWarehouse) {
         toast({
           title: "Error",
@@ -209,15 +193,12 @@ const Inventory: React.FC = () => {
         return;
       }
       
-      // Transferir producto
       const updatedProduct = inventoryService.transferProduct(transfer);
       
-      // Actualizar el estado local
       setInventoryData(prev => prev.map(item => 
         item.id === updatedProduct.id ? updatedProduct : item
       ));
       
-      // Cerrar diálogo y limpiar formulario
       setIsTransferDialogOpen(false);
       setTransfer({
         productId: 0,
@@ -230,7 +211,6 @@ const Inventory: React.FC = () => {
     }
   };
   
-  // Mapped warehouse names for display
   const warehouseNames = {
     mainWarehouse: 'Bodega Principal',
     warehouse1: 'Bodega 1',
@@ -248,7 +228,6 @@ const Inventory: React.FC = () => {
       </div>
       
       <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
-        {/* Inventory Summary Cards */}
         <Card className="md:w-1/3">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Bodega Principal</CardTitle>
@@ -474,6 +453,7 @@ const Inventory: React.FC = () => {
                 <TabsTrigger value="all">Todos</TabsTrigger>
                 <TabsTrigger value="low">Stock Bajo</TabsTrigger>
                 <TabsTrigger value="transfer">Transferencias</TabsTrigger>
+                <TabsTrigger value="history">Historial</TabsTrigger>
               </TabsList>
               
               <div className="flex flex-col space-y-2 md:flex-row md:space-y-0 md:space-x-2">
@@ -743,11 +723,9 @@ const Inventory: React.FC = () => {
                               variant="outline" 
                               size="sm"
                               onClick={() => {
-                                // Preparar los datos para la transferencia
                                 let sourceWarehouse: TransferRequest['sourceWarehouse'] = 'mainWarehouse';
                                 let destinationWarehouse: TransferRequest['destinationWarehouse'] = 'warehouse1';
                                 
-                                // Determinar la bodega que necesita reabastecimiento
                                 if (item.warehouse1 < item.threshold) {
                                   destinationWarehouse = 'warehouse1';
                                 } else if (item.warehouse2 < item.threshold) {
@@ -756,7 +734,6 @@ const Inventory: React.FC = () => {
                                   destinationWarehouse = 'warehouse3';
                                 }
                                 
-                                // Configurar y abrir el diálogo de transferencia
                                 setTransfer({
                                   productId: item.id,
                                   sourceWarehouse,
@@ -811,7 +788,6 @@ const Inventory: React.FC = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {/* Ejemplo de historial de transferencias */}
                         <TableRow>
                           <TableCell>Whisky Premium</TableCell>
                           <TableCell>Bodega Principal</TableCell>
@@ -830,6 +806,12 @@ const Inventory: React.FC = () => {
                     </Table>
                   </div>
                 </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="history" className="m-0">
+              <div className="border rounded-md p-6 bg-muted/30">
+                <MovementHistory products={inventoryData} />
               </div>
             </TabsContent>
           </Tabs>

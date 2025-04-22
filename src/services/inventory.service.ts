@@ -22,8 +22,20 @@ export interface TransferRequest {
   quantity: number;
 }
 
+export interface InventoryMovement {
+  id: number;
+  productId: number;
+  productName: string;
+  type: 'entrada' | 'salida';
+  quantity: number;
+  responsible: string;
+  note: string;
+  timestamp: string;
+}
+
 // Almacenamiento local para simular persistencia en el cliente
 const STORAGE_KEY = 'likistock_inventory';
+const MOVEMENTS_KEY = 'likistock_movements';
 
 // Función para obtener el inventario del almacenamiento local
 export const getInventory = (): Product[] => {
@@ -232,10 +244,65 @@ export const transferProduct = (request: TransferRequest): Product => {
   return updateProduct(updatedProduct);
 };
 
+// Función para obtener los movimientos
+export const getInventoryMovements = (): InventoryMovement[] => {
+  const stored = localStorage.getItem(MOVEMENTS_KEY);
+  return stored ? JSON.parse(stored) : [];
+};
+
+// Función para guardar los movimientos
+export const saveInventoryMovements = (movements: InventoryMovement[]): void => {
+  localStorage.setItem(MOVEMENTS_KEY, JSON.stringify(movements));
+  window.dispatchEvent(new StorageEvent('storage', { key: MOVEMENTS_KEY }));
+};
+
+// Función para agregar un movimiento
+export const addInventoryMovement = (
+  productId: number,
+  type: 'entrada' | 'salida',
+  quantity: number,
+  responsible: string,
+  note: string
+): void => {
+  const movements = getInventoryMovements();
+  const inventory = getInventory();
+  const product = inventory.find(p => p.id === productId);
+
+  if (!product) {
+    throw new Error('Producto no encontrado');
+  }
+
+  const newMovement: InventoryMovement = {
+    id: movements.length > 0 ? Math.max(...movements.map(m => m.id)) + 1 : 1,
+    productId,
+    productName: product.name,
+    type,
+    quantity,
+    responsible,
+    note,
+    timestamp: new Date().toISOString()
+  };
+
+  // Actualizar el inventario
+  const updatedProduct = { ...product };
+  if (type === 'entrada') {
+    updatedProduct.mainWarehouse += quantity;
+  } else {
+    if (updatedProduct.mainWarehouse < quantity) {
+      throw new Error('Stock insuficiente');
+    }
+    updatedProduct.mainWarehouse -= quantity;
+  }
+
+  // Guardar los cambios
+  updateProduct(updatedProduct);
+  saveInventoryMovements([newMovement, ...movements]);
+};
+
 // Hook para usar el servicio de inventario con toast notifications
 export const useInventoryService = () => {
   const { toast } = useToast();
-  
+
   return {
     getInventory,
     
@@ -317,6 +384,31 @@ export const useInventoryService = () => {
         });
         throw error;
       }
-    }
+    },
+    
+    addMovement: (
+      productId: number,
+      type: 'entrada' | 'salida',
+      quantity: number,
+      responsible: string,
+      note: string
+    ) => {
+      try {
+        addInventoryMovement(productId, type, quantity, responsible, note);
+        toast({
+          title: "Movimiento registrado",
+          description: `Se ha registrado un ${type} de inventario.`
+        });
+      } catch (error: any) {
+        toast({
+          title: "Error al registrar movimiento",
+          description: error.message,
+          variant: "destructive"
+        });
+        throw error;
+      }
+    },
+    
+    getMovements: getInventoryMovements
   };
 };
