@@ -8,24 +8,46 @@ import { Label } from '@/components/ui/label';
 import { Package } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+
+// Esquema de validación
+const authSchema = z.object({
+  email: z.string().email({
+    message: "Por favor ingresa un correo electrónico válido",
+  }),
+  password: z.string().min(6, {
+    message: "La contraseña debe tener al menos 6 caracteres",
+  }),
+});
+
+type AuthValues = z.infer<typeof authSchema>;
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Inicializar formulario con react-hook-form y zod
+  const form = useForm<AuthValues>({
+    resolver: zodResolver(authSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+  });
+
+  const handleSubmit = async (values: AuthValues) => {
     setIsLoading(true);
 
     try {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
-          email,
-          password,
+          email: values.email,
+          password: values.password,
         });
         
         if (error) throw error;
@@ -36,8 +58,8 @@ const Auth = () => {
         });
       } else {
         const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+          email: values.email,
+          password: values.password,
         });
         
         if (error) throw error;
@@ -45,9 +67,10 @@ const Auth = () => {
         navigate('/dashboard');
       }
     } catch (error: any) {
+      console.error("Error de autenticación:", error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Ha ocurrido un error de autenticación",
         variant: "destructive",
       });
     } finally {
@@ -77,46 +100,60 @@ const Auth = () => {
                 : 'Ingresa tus credenciales para acceder al sistema'}
             </CardDescription>
           </CardHeader>
-          <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Correo Electrónico</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="ejemplo@licorhub.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSubmit)}>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Correo Electrónico</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="ejemplo@licorhub.com"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Contraseña</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contraseña</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-            </CardContent>
-            <CardFooter className="flex flex-col space-y-4">
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Procesando...' : (isSignUp ? 'Registrarse' : 'Iniciar Sesión')}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full"
-                onClick={() => setIsSignUp(!isSignUp)}
-              >
-                {isSignUp 
-                  ? '¿Ya tienes una cuenta? Inicia sesión' 
-                  : '¿No tienes una cuenta? Regístrate'}
-              </Button>
-            </CardFooter>
-          </form>
+              </CardContent>
+              <CardFooter className="flex flex-col space-y-4">
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? 'Procesando...' : (isSignUp ? 'Registrarse' : 'Iniciar Sesión')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => setIsSignUp(!isSignUp)}
+                >
+                  {isSignUp 
+                    ? '¿Ya tienes una cuenta? Inicia sesión' 
+                    : '¿No tienes una cuenta? Regístrate'}
+                </Button>
+              </CardFooter>
+            </form>
+          </Form>
         </Card>
       </div>
     </div>

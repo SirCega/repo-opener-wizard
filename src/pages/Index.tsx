@@ -2,11 +2,9 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/components/ui/use-toast';
 
 const Index: React.FC = () => {
   const { user, isLoading } = useAuth();
-  const { toast } = useToast();
   
   if (isLoading) {
     return (
