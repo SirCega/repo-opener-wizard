@@ -39,79 +39,72 @@ const ProtectedRoute = ({
   }
 
   // Check if user's role allows access
-  if (!hasAccess(allowedRoles)) {
+  if (allowedRoles.length > 0 && !hasAccess(allowedRoles)) {
     return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
 };
 
-// App routes component (used inside AuthProvider)
-const AppRoutes = () => {
-  return (
-    <Routes>
-      <Route path="/auth" element={<Auth />} />
-      <Route path="/login" element={<Navigate to="/auth" replace />} />
-      
-      <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="productos" element={
-          <ProtectedRoute allowedRoles={['admin', 'oficinista']}>
-            <Products />
-          </ProtectedRoute>
-        } />
-        <Route path="inventario" element={
-          <ProtectedRoute allowedRoles={['admin', 'oficinista']}>
-            <Inventory />
-          </ProtectedRoute>
-        } />
-        <Route path="pedidos" element={
-          <ProtectedRoute allowedRoles={['admin', 'oficinista', 'bodeguero', 'cliente']}>
-            <Orders />
-          </ProtectedRoute>
-        } />
-        <Route path="entregas" element={
-          <ProtectedRoute allowedRoles={['admin', 'oficinista', 'bodeguero', 'domiciliario']}>
-            <Deliveries />
-          </ProtectedRoute>
-        } />
-        <Route path="reportes" element={
-          <ProtectedRoute allowedRoles={['admin', 'oficinista']}>
-            <Reports />
-          </ProtectedRoute>
-        } />
-        <Route path="facturas" element={
-          <ProtectedRoute allowedRoles={['admin', 'oficinista', 'cliente']}>
-            <Invoices />
-          </ProtectedRoute>
-        } />
-        <Route path="usuarios" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <Users />
-          </ProtectedRoute>
-        } />
-        <Route path="configuracion" element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <Settings />
-          </ProtectedRoute>
-        } />
-      </Route>
-      
-      {/* Catch-all route for 404 */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
-  );
-};
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <Routes>
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/login" element={<Navigate to="/auth" replace />} />
+            
+            <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="productos" element={
+                <ProtectedRoute allowedRoles={['admin', 'oficinista']}>
+                  <Products />
+                </ProtectedRoute>
+              } />
+              <Route path="inventario" element={
+                <ProtectedRoute allowedRoles={['admin', 'oficinista']}>
+                  <Inventory />
+                </ProtectedRoute>
+              } />
+              <Route path="pedidos" element={
+                <ProtectedRoute allowedRoles={['admin', 'oficinista', 'bodeguero', 'cliente']}>
+                  <Orders />
+                </ProtectedRoute>
+              } />
+              <Route path="entregas" element={
+                <ProtectedRoute allowedRoles={['admin', 'oficinista', 'bodeguero', 'domiciliario']}>
+                  <Deliveries />
+                </ProtectedRoute>
+              } />
+              <Route path="reportes" element={
+                <ProtectedRoute allowedRoles={['admin', 'oficinista']}>
+                  <Reports />
+                </ProtectedRoute>
+              } />
+              <Route path="facturas" element={
+                <ProtectedRoute allowedRoles={['admin', 'oficinista', 'cliente']}>
+                  <Invoices />
+                </ProtectedRoute>
+              } />
+              <Route path="usuarios" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <Users />
+                </ProtectedRoute>
+              } />
+              <Route path="configuracion" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <Settings />
+                </ProtectedRoute>
+              } />
+            </Route>
+            
+            {/* Catch-all route for 404 */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          <Toaster />
+          <Sonner />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
