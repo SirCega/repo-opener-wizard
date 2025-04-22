@@ -27,7 +27,7 @@ const Logo: React.FC<LogoProps> = ({ size = 'md', showText = true }) => {
       </div>
       {showText && (
         <span className={`font-bold ${textSizes[size]}`}>
-          LIKI<span className="text-primary">STOCK</span>
+          Liqui<span className="text-primary">Stock</span>
         </span>
       )}
     </div>

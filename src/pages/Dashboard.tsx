@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3, Package, ShoppingCart, TrendingUp, Users, Truck, AlertTriangle, Calendar } from 'lucide-react';
+import { BarChart3, Package, ShoppingCart, TrendingUp, Users, Truck, AlertTriangle, Calendar, FileText } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -16,6 +16,8 @@ import {
   Bar,
   Legend
 } from 'recharts';
+import { getOrders, getInvoices } from '@/services/order.service';
+import { getInventory } from '@/services/inventory.service';
 
 // Mock data for charts
 const salesData = [
@@ -40,24 +42,28 @@ const dailySalesData = [
   { hour: '8PM', valor: 760 },
 ];
 
-const inventoryData = [
-  { name: 'Whisky', bodegaMadre: 120, bodega1: 30, bodega2: 45, bodega3: 35 },
-  { name: 'Aguardiente', bodegaMadre: 200, bodega1: 50, bodega2: 40, bodega3: 60 },
-  { name: 'Ron', bodegaMadre: 150, bodega1: 25, bodega2: 35, bodega3: 40 },
-  { name: 'Cerveza', bodegaMadre: 300, bodega1: 100, bodega2: 90, bodega3: 80 },
-  { name: 'Vodka', bodegaMadre: 90, bodega1: 20, bodega2: 25, bodega3: 15 },
-];
-
-const lowStockItems = [
-  { id: 1, name: 'Whisky Premium', stock: 8, threshold: 10, location: 'Bodega 2' },
-  { id: 2, name: 'Ron Dorado', stock: 5, threshold: 12, location: 'Bodega 3' },
-  { id: 3, name: 'Vodka Importado', stock: 3, threshold: 15, location: 'Bodega 1' },
-];
-
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [periodView, setPeriodView] = useState<'day' | 'month'>('month');
+  const [orders, setOrders] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [inventory, setInventory] = useState<any[]>([]);
+  
+  // Fetch data on component mount
+  useEffect(() => {
+    const fetchData = () => {
+      const ordersData = getOrders();
+      const invoicesData = getInvoices();
+      const inventoryData = getInventory();
+      
+      setOrders(ordersData);
+      setInvoices(invoicesData);
+      setInventory(inventoryData);
+    };
+    
+    fetchData();
+  }, []);
   
   // Calcular total de ventas del día
   const totalDailySales = dailySalesData.reduce((sum, item) => sum + item.valor, 0);
@@ -71,6 +77,476 @@ const Dashboard: React.FC = () => {
     });
   };
   
+  // Filter client orders and invoices
+  const clientOrders = orders.filter(order => 
+    user?.role === 'cliente' && user?.name === order.customer
+  );
+  
+  const clientInvoices = invoices.filter(invoice => 
+    user?.role === 'cliente' && user?.name === invoice.customerName
+  );
+  
+  // Get low stock items
+  const lowStockItems = inventory.filter(item => {
+    const totalStock = item.mainWarehouse + item.warehouse1 + item.warehouse2 + item.warehouse3;
+    return totalStock < item.threshold;
+  });
+  
+  // Transform inventory data for the chart
+  const inventoryChartData = inventory.slice(0, 5).map(item => ({
+    name: item.name,
+    bodegaMadre: item.mainWarehouse,
+    bodega1: item.warehouse1,
+    bodega2: item.warehouse2,
+    bodega3: item.warehouse3
+  }));
+  
+  // Client dashboard
+  if (user?.role === 'cliente') {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Dashboard Cliente</h1>
+          <p className="text-muted-foreground">
+            Resumen de tus pedidos y facturas pendientes.
+          </p>
+        </div>
+        
+        {/* Cliente Stats Overview */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <Card>
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="p-2 bg-green-100 rounded-full">
+                <ShoppingCart className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Tus Pedidos</p>
+                <p className="text-2xl font-bold">{clientOrders.length}</p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="p-2 bg-blue-100 rounded-full">
+                <Truck className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">En Entrega</p>
+                <p className="text-2xl font-bold">
+                  {clientOrders.filter(o => o.status === 'enviado').length}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="p-2 bg-amber-100 rounded-full">
+                <FileText className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Facturas Pendientes</p>
+                <p className="text-2xl font-bold">
+                  {clientInvoices.filter(i => i.status === 'pendiente').length}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        {/* Cliente Recent Orders */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Mis Pedidos Recientes</CardTitle>
+            <CardDescription>
+              Estado de tus últimas compras
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="text-left py-2 px-4 border-b">Nº Pedido</th>
+                    <th className="text-left py-2 px-4 border-b">Fecha</th>
+                    <th className="text-center py-2 px-4 border-b">Total</th>
+                    <th className="text-center py-2 px-4 border-b">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clientOrders.length > 0 ? (
+                    clientOrders.map((order) => (
+                      <tr key={order.id} className="hover:bg-muted/50">
+                        <td className="py-2 px-4 border-b">{order.orderNumber}</td>
+                        <td className="py-2 px-4 border-b">{order.date}</td>
+                        <td className="text-center py-2 px-4 border-b">${order.total.toFixed(2)}</td>
+                        <td className="text-center py-2 px-4 border-b">
+                          <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                            order.status === 'entregado' ? 'bg-green-100 text-green-800' : 
+                            order.status === 'enviado' ? 'bg-purple-100 text-purple-800' :
+                            order.status === 'preparacion' ? 'bg-amber-100 text-amber-800' :
+                            order.status === 'pendiente' ? 'bg-blue-100 text-blue-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {order.status === 'entregado' ? 'Entregado' :
+                             order.status === 'enviado' ? 'En camino' :
+                             order.status === 'preparacion' ? 'Preparando' :
+                             order.status === 'pendiente' ? 'Pendiente' :
+                             'Cancelado'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="py-4 text-center text-muted-foreground">
+                        No tienes pedidos realizados aún.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Cliente Facturas */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Mis Facturas</CardTitle>
+            <CardDescription>
+              Listado de tus facturas pendientes
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="text-left py-2 px-4 border-b">Nº Factura</th>
+                    <th className="text-left py-2 px-4 border-b">Fecha</th>
+                    <th className="text-center py-2 px-4 border-b">Total</th>
+                    <th className="text-center py-2 px-4 border-b">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clientInvoices.length > 0 ? (
+                    clientInvoices.map((invoice) => (
+                      <tr key={invoice.id} className="hover:bg-muted/50">
+                        <td className="py-2 px-4 border-b">{invoice.invoiceNumber}</td>
+                        <td className="py-2 px-4 border-b">{invoice.date}</td>
+                        <td className="text-center py-2 px-4 border-b">${invoice.total.toFixed(2)}</td>
+                        <td className="text-center py-2 px-4 border-b">
+                          <span className={`inline-block px-2 py-1 rounded-full text-xs ${
+                            invoice.status === 'pagada' ? 'bg-green-100 text-green-800' : 
+                            invoice.status === 'pendiente' ? 'bg-blue-100 text-blue-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {invoice.status === 'pagada' ? 'Pagada' :
+                             invoice.status === 'pendiente' ? 'Pendiente' :
+                             'Cancelada'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="py-4 text-center text-muted-foreground">
+                        No tienes facturas pendientes.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
+  // Bodeguero dashboard
+  if (user?.role === 'bodeguero') {
+    const pendingOrders = orders.filter(o => o.status === 'pendiente').length;
+    const preparingOrders = orders.filter(o => o.status === 'preparacion').length;
+    const shippedOrders = orders.filter(o => o.status === 'enviado').length;
+    
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Dashboard Bodeguero</h1>
+          <p className="text-muted-foreground">
+            Resumen de pedidos pendientes y en preparación.
+          </p>
+        </div>
+        
+        {/* Bodeguero Stats Overview */}
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="p-2 bg-blue-100 rounded-full">
+                <ShoppingCart className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Pedidos Pendientes</p>
+                <p className="text-2xl font-bold">{pendingOrders}</p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="p-2 bg-amber-100 rounded-full">
+                <Package className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">En Preparación</p>
+                <p className="text-2xl font-bold">{preparingOrders}</p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="p-2 bg-purple-100 rounded-full">
+                <Truck className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Enviados</p>
+                <p className="text-2xl font-bold">{shippedOrders}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        {/* Bodeguero Orders In Preparation */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Pedidos En Preparación</CardTitle>
+            <CardDescription>
+              Pedidos que requieren tu atención
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="text-left py-2 px-4 border-b">Nº Pedido</th>
+                    <th className="text-left py-2 px-4 border-b">Cliente</th>
+                    <th className="text-left py-2 px-4 border-b">Fecha</th>
+                    <th className="text-center py-2 px-4 border-b">Productos</th>
+                    <th className="text-center py-2 px-4 border-b">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.filter(o => o.status === 'preparacion').length > 0 ? (
+                    orders.filter(o => o.status === 'preparacion').map((order) => (
+                      <tr key={order.id} className="hover:bg-muted/50">
+                        <td className="py-2 px-4 border-b">{order.orderNumber}</td>
+                        <td className="py-2 px-4 border-b">{order.customer}</td>
+                        <td className="py-2 px-4 border-b">{order.date}</td>
+                        <td className="text-center py-2 px-4 border-b">{order.items.length}</td>
+                        <td className="text-center py-2 px-4 border-b">${order.total.toFixed(2)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5} className="py-4 text-center text-muted-foreground">
+                        No hay pedidos en preparación actualmente.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Low Stock Alert */}
+        <Card className="border-red-200 bg-red-50/50">
+          <CardHeader className="pb-3">
+            <div className="flex items-center">
+              <AlertTriangle className="h-5 w-5 text-red-500 mr-2" />
+              <CardTitle>Alerta de Stock Bajo</CardTitle>
+            </div>
+            <CardDescription>Productos que requieren reabastecimiento</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="text-left py-2 px-4 border-b">Producto</th>
+                    <th className="text-center py-2 px-4 border-b">Stock Actual</th>
+                    <th className="text-center py-2 px-4 border-b">Mínimo</th>
+                    <th className="text-center py-2 px-4 border-b">Ubicación</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lowStockItems.length > 0 ? (
+                    lowStockItems.map((item) => (
+                      <tr key={item.id} className="hover:bg-red-100/50">
+                        <td className="py-2 px-4 border-b">{item.name}</td>
+                        <td className="text-center py-2 px-4 border-b font-medium text-red-600">
+                          {item.mainWarehouse + item.warehouse1 + item.warehouse2 + item.warehouse3}
+                        </td>
+                        <td className="text-center py-2 px-4 border-b">{item.threshold}</td>
+                        <td className="text-center py-2 px-4 border-b">Varias</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="py-4 text-center text-muted-foreground">
+                        No hay productos con stock bajo actualmente.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
+  // Domiciliario dashboard
+  if (user?.role === 'domiciliario') {
+    // Filtrar pedidos asignados al domiciliario actual (simulamos con ID 1)
+    const assignedOrders = orders.filter(order => order.deliveryPersonId === 1);
+    const pendingDeliveries = assignedOrders.filter(o => o.status === 'enviado').length;
+    const completedDeliveries = assignedOrders.filter(o => o.status === 'entregado').length;
+    
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Dashboard Domiciliario</h1>
+          <p className="text-muted-foreground">
+            Resumen de entregas pendientes y completadas.
+          </p>
+        </div>
+        
+        {/* Domiciliario Stats Overview */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="p-2 bg-purple-100 rounded-full">
+                <Truck className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Entregas Pendientes</p>
+                <p className="text-2xl font-bold">{pendingDeliveries}</p>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="flex items-center gap-4 pt-6">
+              <div className="p-2 bg-green-100 rounded-full">
+                <ShoppingCart className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Entregas Completadas</p>
+                <p className="text-2xl font-bold">{completedDeliveries}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        {/* Domiciliario Assigned Deliveries */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Mis Entregas Asignadas</CardTitle>
+            <CardDescription>
+              Entregas pendientes para hoy
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="text-left py-2 px-4 border-b">Nº Pedido</th>
+                    <th className="text-left py-2 px-4 border-b">Cliente</th>
+                    <th className="text-left py-2 px-4 border-b">Dirección</th>
+                    <th className="text-center py-2 px-4 border-b">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {assignedOrders.filter(o => o.status === 'enviado').length > 0 ? (
+                    assignedOrders.filter(o => o.status === 'enviado').map((order) => (
+                      <tr key={order.id} className="hover:bg-muted/50">
+                        <td className="py-2 px-4 border-b">{order.orderNumber}</td>
+                        <td className="py-2 px-4 border-b">{order.customer}</td>
+                        <td className="py-2 px-4 border-b">{order.address}</td>
+                        <td className="text-center py-2 px-4 border-b">
+                          <span className="inline-block px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
+                            En camino
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="py-4 text-center text-muted-foreground">
+                        No tienes entregas pendientes actualmente.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Domiciliario Completed Deliveries */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Mis Entregas Completadas</CardTitle>
+            <CardDescription>
+              Historial de entregas realizadas
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="text-left py-2 px-4 border-b">Nº Pedido</th>
+                    <th className="text-left py-2 px-4 border-b">Cliente</th>
+                    <th className="text-left py-2 px-4 border-b">Fecha</th>
+                    <th className="text-center py-2 px-4 border-b">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {assignedOrders.filter(o => o.status === 'entregado').length > 0 ? (
+                    assignedOrders.filter(o => o.status === 'entregado').map((order) => (
+                      <tr key={order.id} className="hover:bg-muted/50">
+                        <td className="py-2 px-4 border-b">{order.orderNumber}</td>
+                        <td className="py-2 px-4 border-b">{order.customer}</td>
+                        <td className="py-2 px-4 border-b">{order.date}</td>
+                        <td className="text-center py-2 px-4 border-b">${order.total.toFixed(2)}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="py-4 text-center text-muted-foreground">
+                        No has completado ninguna entrega aún.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
+  // Admin/Oficinista dashboard (default view)
   return (
     <div className="space-y-6">
       <div>
@@ -89,7 +565,7 @@ const Dashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Productos</p>
-              <p className="text-2xl font-bold">124</p>
+              <p className="text-2xl font-bold">{inventory.length}</p>
             </div>
           </CardContent>
         </Card>
@@ -101,7 +577,7 @@ const Dashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Pedidos Pendientes</p>
-              <p className="text-2xl font-bold">28</p>
+              <p className="text-2xl font-bold">{orders.filter(o => o.status === 'pendiente').length}</p>
             </div>
           </CardContent>
         </Card>
@@ -113,7 +589,7 @@ const Dashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Entregas Hoy</p>
-              <p className="text-2xl font-bold">12</p>
+              <p className="text-2xl font-bold">{orders.filter(o => o.status === 'enviado').length}</p>
             </div>
           </CardContent>
         </Card>
@@ -125,7 +601,9 @@ const Dashboard: React.FC = () => {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Ventas del Mes</p>
-              <p className="text-2xl font-bold">$24,500</p>
+              <p className="text-2xl font-bold">
+                ${orders.reduce((sum, order) => sum + order.total, 0).toFixed(2)}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -219,7 +697,7 @@ const Dashboard: React.FC = () => {
           </CardHeader>
           <CardContent className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={inventoryData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+              <BarChart data={inventoryChartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
@@ -256,14 +734,24 @@ const Dashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {lowStockItems.map((item) => (
-                  <tr key={item.id} className="hover:bg-red-100/50">
-                    <td className="py-2 px-4 border-b">{item.name}</td>
-                    <td className="text-center py-2 px-4 border-b font-medium text-red-600">{item.stock}</td>
-                    <td className="text-center py-2 px-4 border-b">{item.threshold}</td>
-                    <td className="py-2 px-4 border-b">{item.location}</td>
+                {lowStockItems.length > 0 ? (
+                  lowStockItems.map((item) => (
+                    <tr key={item.id} className="hover:bg-red-100/50">
+                      <td className="py-2 px-4 border-b">{item.name}</td>
+                      <td className="text-center py-2 px-4 border-b font-medium text-red-600">
+                        {item.mainWarehouse + item.warehouse1 + item.warehouse2 + item.warehouse3}
+                      </td>
+                      <td className="text-center py-2 px-4 border-b">{item.threshold}</td>
+                      <td className="py-2 px-4 border-b">Varias</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="py-4 text-center text-muted-foreground">
+                      No hay productos con stock bajo actualmente.
+                    </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
@@ -283,8 +771,8 @@ const Dashboard: React.FC = () => {
                   <ShoppingCart className="h-4 w-4 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium">Nuevo pedido #12456</p>
-                  <p className="text-xs text-muted-foreground">Hace 10 minutos - Cliente: María López</p>
+                  <p className="text-sm font-medium">Nuevo pedido #{orders.length > 0 ? orders[0].orderNumber : 'N/A'}</p>
+                  <p className="text-xs text-muted-foreground">Hace 10 minutos - Cliente: {orders.length > 0 ? orders[0].customer : 'N/A'}</p>
                 </div>
               </div>
               
@@ -293,8 +781,8 @@ const Dashboard: React.FC = () => {
                   <Truck className="h-4 w-4 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium">Entrega completada #12445</p>
-                  <p className="text-xs text-muted-foreground">Hace 48 minutos - Domiciliario: Juan Pérez</p>
+                  <p className="text-sm font-medium">Entrega completada #{orders.length > 1 ? orders[1].orderNumber : 'N/A'}</p>
+                  <p className="text-xs text-muted-foreground">Hace 48 minutos - Domiciliario: Luis Pérez</p>
                 </div>
               </div>
               

@@ -5,7 +5,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
 import Products from "./pages/Products";
@@ -29,7 +28,7 @@ const ProtectedRoute = ({
   children: React.ReactNode, 
   allowedRoles?: string[] 
 }) => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, hasAccess } = useAuth();
 
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Cargando...</div>;
@@ -39,14 +38,8 @@ const ProtectedRoute = ({
     return <Navigate to="/auth" replace />;
   }
 
-  // Check if user's role is allowed
-  const isAllowed = 
-    user.role === 'admin' || // Admin puede acceder a todo
-    (user.role === 'oficinista' && !allowedRoles.includes('usuarios-management')) || // Oficinista puede acceder a todo menos usuarios
-    allowedRoles.includes(user.role) || // Si el rol está explícitamente permitido
-    allowedRoles.length === 0; // Si no hay roles especificados, se permite el acceso
-
-  if (!isAllowed) {
+  // Check if user's role allows access
+  if (!hasAccess(allowedRoles)) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -74,7 +67,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         } />
         <Route path="pedidos" element={
-          <ProtectedRoute allowedRoles={['admin', 'oficinista', 'bodeguero']}>
+          <ProtectedRoute allowedRoles={['admin', 'oficinista', 'bodeguero', 'cliente']}>
             <Orders />
           </ProtectedRoute>
         } />
@@ -89,12 +82,12 @@ const AppRoutes = () => {
           </ProtectedRoute>
         } />
         <Route path="facturas" element={
-          <ProtectedRoute allowedRoles={['admin', 'oficinista']}>
+          <ProtectedRoute allowedRoles={['admin', 'oficinista', 'cliente']}>
             <Invoices />
           </ProtectedRoute>
         } />
         <Route path="usuarios" element={
-          <ProtectedRoute allowedRoles={['admin', 'usuarios-management']}>
+          <ProtectedRoute allowedRoles={['admin']}>
             <Users />
           </ProtectedRoute>
         } />

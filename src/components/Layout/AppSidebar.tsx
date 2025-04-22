@@ -23,13 +23,14 @@ import {
   Archive, 
   Home, 
   LogOut, 
-  Settings 
+  Settings,
+  Wine 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 
 const AppSidebar: React.FC = () => {
-  const { logout, user } = useAuth();
+  const { logout, user, hasAccess } = useAuth();
 
   // Definimos elementos comunes a todos los usuarios
   const commonMenuItems = [
@@ -40,10 +41,18 @@ const AppSidebar: React.FC = () => {
   const adminOfficinistaMenuItems = [
     { title: 'Productos', path: '/productos', icon: Package, roles: ['admin', 'oficinista'] },
     { title: 'Inventario', path: '/inventario', icon: Archive, roles: ['admin', 'oficinista'] },
-    { title: 'Pedidos', path: '/pedidos', icon: ShoppingCart, roles: ['admin', 'oficinista', 'bodeguero'] },
+  ];
+
+  // Pedidos y entregas (acceso variable según rol)
+  const operationsMenuItems = [
+    { title: 'Pedidos', path: '/pedidos', icon: ShoppingCart, roles: ['admin', 'oficinista', 'bodeguero', 'cliente'] },
     { title: 'Entregas', path: '/entregas', icon: Truck, roles: ['admin', 'oficinista', 'bodeguero', 'domiciliario'] },
+  ];
+
+  // Reportes y facturas
+  const reportingMenuItems = [
     { title: 'Reportes', path: '/reportes', icon: BarChart3, roles: ['admin', 'oficinista'] },
-    { title: 'Facturas', path: '/facturas', icon: FileText, roles: ['admin', 'oficinista'] },
+    { title: 'Facturas', path: '/facturas', icon: FileText, roles: ['admin', 'oficinista', 'cliente'] },
   ];
 
   // Solo admins pueden ver usuarios
@@ -55,6 +64,8 @@ const AppSidebar: React.FC = () => {
   // Filtrar las opciones de menú según el rol del usuario
   const filteredCommonMenu = commonMenuItems.filter(item => user && item.roles.includes(user.role));
   const filteredAdminOfficinista = adminOfficinistaMenuItems.filter(item => user && item.roles.includes(user.role));
+  const filteredOperations = operationsMenuItems.filter(item => user && item.roles.includes(user.role));
+  const filteredReporting = reportingMenuItems.filter(item => user && item.roles.includes(user.role));
   const filteredAdminOnly = adminOnlyItems.filter(item => user && item.roles.includes(user.role));
 
   return (
@@ -62,10 +73,10 @@ const AppSidebar: React.FC = () => {
       <SidebarHeader className="p-4">
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-            <span className="text-white font-bold text-lg">LH</span>
+            <Wine className="text-white w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-sidebar-foreground text-xl font-bold">LicorHub</h1>
+            <h1 className="text-sidebar-foreground text-xl font-bold">LiquiStock</h1>
             <p className="text-sidebar-foreground/70 text-xs">Sistema de Gestión</p>
           </div>
         </div>
@@ -96,12 +107,64 @@ const AppSidebar: React.FC = () => {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Menú para admin y oficinista */}
+        {/* Productos e inventarios: solo admin y oficinista */}
         {filteredAdminOfficinista.length > 0 && (
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
                 {filteredAdminOfficinista.map((item) => (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton asChild>
+                      <NavLink 
+                        to={item.path}
+                        className={({ isActive }) => 
+                          isActive ? "w-full flex items-center space-x-2 px-3 py-2 bg-sidebar-accent rounded-md" 
+                          : "w-full flex items-center space-x-2 px-3 py-2 hover:bg-sidebar-accent/50 rounded-md"
+                        }
+                      >
+                        <item.icon className="w-5 h-5" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Pedidos y entregas: acceso variable según rol */}
+        {filteredOperations.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredOperations.map((item) => (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton asChild>
+                      <NavLink 
+                        to={item.path}
+                        className={({ isActive }) => 
+                          isActive ? "w-full flex items-center space-x-2 px-3 py-2 bg-sidebar-accent rounded-md" 
+                          : "w-full flex items-center space-x-2 px-3 py-2 hover:bg-sidebar-accent/50 rounded-md"
+                        }
+                      >
+                        <item.icon className="w-5 h-5" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Reportes y facturas */}
+        {filteredReporting.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredReporting.map((item) => (
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton asChild>
                       <NavLink 
@@ -155,6 +218,11 @@ const AppSidebar: React.FC = () => {
               <div className="p-3 bg-sidebar-accent rounded-md">
                 <p className="text-sm font-medium text-sidebar-foreground">Usuario: {user?.name}</p>
                 <p className="text-xs text-sidebar-foreground/70">Rol: {user?.role}</p>
+                {user?.address && (
+                  <p className="text-xs text-sidebar-foreground/70 mt-1 truncate" title={user.address}>
+                    Dirección: {user.address}
+                  </p>
+                )}
               </div>
             </div>
           </SidebarGroupContent>
