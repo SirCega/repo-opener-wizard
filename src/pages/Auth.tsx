@@ -7,11 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Package } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useAuth } from '@/hooks/useAuth';
 
 // Esquema de validación
 const authSchema = z.object({
@@ -30,6 +30,7 @@ const Auth = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { login } = useAuth();
 
   // Inicializar formulario con react-hook-form y zod
   const form = useForm<AuthValues>({
@@ -45,26 +46,15 @@ const Auth = () => {
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email: values.email,
-          password: values.password,
-        });
-        
-        if (error) throw error;
-        
+        // Como estamos usando localStorage, no podemos registrar nuevos usuarios
         toast({
-          title: "Registro exitoso",
-          description: "Por favor verifica tu email para confirmar tu cuenta.",
+          title: "Función no disponible",
+          description: "El registro de nuevos usuarios no está disponible en el modo demo.",
+          variant: "destructive",
         });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: values.email,
-          password: values.password,
-        });
-        
-        if (error) throw error;
-        
-        navigate('/dashboard');
+        // Usar el hook de autenticación local
+        await login(values.email, values.password);
       }
     } catch (error: any) {
       console.error("Error de autenticación:", error);
@@ -136,6 +126,16 @@ const Auth = () => {
                     </FormItem>
                   )}
                 />
+
+                {/* Usuarios de demostración */}
+                <div className="mt-4 text-center text-sm text-muted-foreground">
+                  <p>Usuarios de demostración:</p>
+                  <p className="mt-1">
+                    admin@licorhub.com / admin123<br/>
+                    cliente@licorhub.com / cliente123<br/>
+                    bodeguero@licorhub.com / bodeguero123
+                  </p>
+                </div>
               </CardContent>
               <CardFooter className="flex flex-col space-y-4">
                 <Button type="submit" className="w-full" disabled={isLoading}>
