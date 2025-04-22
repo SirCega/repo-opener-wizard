@@ -1,5 +1,6 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -46,34 +47,28 @@ const Invoices: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [currentInvoice, setCurrentInvoice] = useState<Invoice | null>(null);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+  const [invoiceToPrint, setInvoiceToPrint] = useState<Invoice | null>(null);
+  const invoiceRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const orderService = useOrderService();
   const { user } = useAuth();
   
-  // Estado para los datos
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   
-  // Cargar datos iniciales
   useEffect(() => {
     setInvoices(orderService.getInvoices());
   }, []);
 
-  // Filtrar facturas según el rol del usuario
   const filteredInvoices = invoices.filter(invoice => {
-    // Filtro de búsqueda
     const matchesSearch = searchQuery === '' || 
       invoice.customerName.toLowerCase().includes(searchQuery.toLowerCase()) || 
       invoice.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase());
     
-    // Filtro de estado
     const matchesStatus = statusFilter === 'all' || invoice.status === statusFilter;
     
-    // Filtros según rol
     if (user?.role === 'cliente') {
-      // Cliente solo ve sus propias facturas
       return matchesSearch && matchesStatus && invoice.customerName === user.name;
     } else {
-      // Admin y oficinista ven todas las facturas
       return matchesSearch && matchesStatus;
     }
   });
@@ -92,20 +87,33 @@ const Invoices: React.FC = () => {
     }
   };
 
-  const printInvoice = (invoiceId: number) => {
-    try {
-      orderService.printInvoice(invoiceId);
-    } catch (error: any) {
-      console.error(error);
-    }
+  const printInvoice = async (invoiceId: number) => {
+    const invoice = invoices.find(i => i.id === invoiceId);
+    if (!invoice) return;
+    setInvoiceToPrint(invoice);
+    setTimeout(() => {
+      window.print();
+      setInvoiceToPrint(null);
+    }, 150);
   };
 
-  const downloadInvoicePDF = (invoiceId: number) => {
-    try {
-      orderService.generateInvoicePDF(invoiceId);
-    } catch (error: any) {
-      console.error(error);
-    }
+  const downloadInvoicePDF = async (invoiceId: number) => {
+    const invoice = invoices.find(i => i.id === invoiceId);
+    if (!invoice) return;
+    
+    setInvoiceToPrint(invoice);
+    setTimeout(async () => {
+      if (invoiceRef.current) {
+        const canvas = await html2canvas(invoiceRef.current, { scale: 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = (canvas.height * pageWidth) / canvas.width;
+        pdf.addImage(imgData, 'PNG', 0, 0, pageWidth, pageHeight);
+        pdf.save(`Factura_${invoice.invoiceNumber}.pdf`);
+      }
+      setInvoiceToPrint(null);
+    }, 300);
   };
 
   const getStatusBadge = (status: Invoice['status']) => {
@@ -121,13 +129,55 @@ const Invoices: React.FC = () => {
     }
   };
 
+  const renderInvoiceContent = (invoice: Invoice | null) => (
+    invoice ? (
+      <div ref={invoiceRef} style={{ padding: '32px', maxWidth: '700px', margin: '0 auto', background: 'white', color: '#111', fontFamily: 'sans-serif' }}>
+        <h1 style={{ marginBottom: 0 }}>LicorHub</h1>
+        <p style={{marginTop:0, fontSize:'14px', color: '#888'}}>Factura #{invoice.invoiceNumber}</p>
+        <hr />
+        <div style={{ display:'flex', justifyContent:'space-between', margin: '18px 0'}}>
+          <div>
+            <b>Cliente:</b> {invoice.customerName} <br />
+            <b>Dirección:</b> {invoice.customerAddress}
+          </div>
+          <div>
+            <b>Fecha:</b> {new Date(invoice.date).toLocaleDateString()} <br />
+            <b>Estado:</b> {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+          </div>
+        </div>
+        <table style={{width:'100%', borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#f9f9f9'}}>
+              <th style={{border:'1px solid #ddd', padding:'8px'}}>Producto</th>
+              <th style={{border:'1px solid #ddd', padding:'8px'}}>Cantidad</th>
+              <th style={{border:'1px solid #ddd', padding:'8px'}}>Precio Unit.</th>
+              <th style={{border:'1px solid #ddd', padding:'8px'}}>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {invoice.items.map((item, i) => (
+              <tr key={i}>
+                <td style={{border:'1px solid #ddd', padding:'8px'}}>{item.productName}</td>
+                <td style={{border:'1px solid #ddd', padding:'8px', textAlign:'center'}}>{item.quantity}</td>
+                <td style={{border:'1px solid #ddd', padding:'8px', textAlign:'right'}}>${item.price.toFixed(2)}</td>
+                <td style={{border:'1px solid #ddd', padding:'8px', textAlign:'right'}}>${(item.price * item.quantity).toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{marginTop:'18px', textAlign:'right'}}>
+          <b>Subtotal:</b> ${invoice.subtotal.toFixed(2)}<br />
+          <b>IVA (19%):</b> ${invoice.tax.toFixed(2)}<br />
+          <b style={{fontSize:'18px'}}>Total:</b> ${invoice.total.toFixed(2)}
+        </div>
+      </div>
+    ) : null
+  );
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Facturas</h1>
-        <p className="text-muted-foreground">
-          Gestión y consulta de facturas generadas.
-        </p>
+      <div style={{ display: invoiceToPrint ? 'block' : 'none', position:'fixed', left:'-100vw', top:0, zIndex:-1 }}>
+        {renderInvoiceContent(invoiceToPrint)}
       </div>
 
       <Card>
@@ -266,7 +316,6 @@ const Invoices: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Invoice Detail Dialog */}
       <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
         <DialogContent className="max-w-3xl">
           {currentInvoice && (
