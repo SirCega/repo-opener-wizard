@@ -62,7 +62,12 @@ const defaultCustomers: Customer[] = [
   { id: 7, name: "Camila Torres", email: "camila@example.com", address: "Avenida 19 #20-45, Cartagena" },
   { id: 8, name: "Santiago Ruiz", email: "santiago@example.com", address: "Calle 11 #89-45, Manizales" },
   { id: 9, name: "Valentina Sierra", email: "valentina@example.com", address: "Carrera 99 #67-12, Ibagué" },
-  { id: 10, name: "David Ferro", email: "david@example.com", address: "Calle 8 #10-11, Pereira" }
+  { id: 10, name: "David Ferro", email: "david@example.com", address: "Calle 8 #10-11, Pereira" },
+  { id: 11, name: "Elena Ramírez", email: "elena@example.com", address: "Avenida Central 789, Pasto" },
+  { id: 12, name: "Miguel Ángel González", email: "miguel@example.com", address: "Carrera 15 #45-23, Armenia" },
+  { id: 13, name: "Laura Morales", email: "laura@example.com", address: "Calle del Parque 456, Villavicencio" },
+  { id: 14, name: "Diego Fernández", email: "diego@example.com", address: "Diagonal 67 #89-12, Popayán" },
+  { id: 15, name: "Carolina Vargas", email: "carolina@example.com", address: "Transversal 32 #56-78, Tunja" }
 ];
 
 // Datos de ejemplo de pedidos (agregamos más y variamos estados)
@@ -221,6 +226,84 @@ const defaultOrders: Order[] = [
     ],
     address: "Calle 8 #10-11, Pereira",
     warehouseSource: "warehouse2"
+  },
+  {
+    id: 11,
+    orderNumber: "ORD-011",
+    customer: "Elena Ramírez",
+    customerId: 11,
+    date: "2024-04-05",
+    total: 180.00,
+    status: "preparacion",
+    items: [
+      { productId: 1, productName: "Whisky Premium", quantity: 3, price: 50.00 },
+      { productId: 5, productName: "Tequila Reposado", quantity: 2, price: 45.00 }
+    ],
+    address: "Avenida Central 789, Pasto",
+    warehouseSource: "warehouse3"
+  },
+  {
+    id: 12,
+    orderNumber: "ORD-012",
+    customer: "Miguel Ángel González",
+    customerId: 12,
+    date: "2024-04-04",
+    total: 95.00,
+    status: "enviado",
+    items: [
+      { productId: 7, productName: "Cerveza Artesanal", quantity: 20, price: 3.00 },
+      { productId: 4, productName: "Vodka Importado", quantity: 1, price: 32.00 }
+    ],
+    address: "Carrera 15 #45-23, Armenia",
+    deliveryPersonId: 5,
+    deliveryPersonName: "Patricia Mendoza",
+    warehouseSource: "warehouse1"
+  },
+  {
+    id: 13,
+    orderNumber: "ORD-013",
+    customer: "Laura Morales",
+    customerId: 13,
+    date: "2024-04-03",
+    total: 220.00,
+    status: "entregado",
+    items: [
+      { productId: 6, productName: "Brandy Reserva", quantity: 5, price: 38.00 },
+      { productId: 2, productName: "Aguardiente Antioqueño", quantity: 4, price: 20.00 }
+    ],
+    address: "Calle del Parque 456, Villavicencio",
+    deliveryPersonId: 6,
+    deliveryPersonName: "Ricardo López",
+    warehouseSource: "mainWarehouse"
+  },
+  {
+    id: 14,
+    orderNumber: "ORD-014",
+    customer: "Diego Fernández",
+    customerId: 14,
+    date: "2024-04-02",
+    total: 75.00,
+    status: "cancelado",
+    items: [
+      { productId: 8, productName: "Gin London Dry", quantity: 1, price: 35.00 },
+      { productId: 3, productName: "Ron Añejo", quantity: 1, price: 28.00 }
+    ],
+    address: "Diagonal 67 #89-12, Popayán",
+    warehouseSource: "warehouse2"
+  },
+  {
+    id: 15,
+    orderNumber: "ORD-015",
+    customer: "Carolina Vargas",
+    customerId: 15,
+    date: "2024-04-01",
+    total: 110.00,
+    status: "pendiente",
+    items: [
+      { productId: 1, productName: "Whisky Premium", quantity: 2, price: 50.00 }
+    ],
+    address: "Transversal 32 #56-78, Tunja",
+    warehouseSource: "mainWarehouse"
   }
 ];
 
