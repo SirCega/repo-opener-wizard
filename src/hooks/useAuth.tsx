@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
@@ -34,7 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session) {
         // Fetch additional user details from your users table if needed
         const { data: userData } = await supabase
-          .from('perfiles')
+          .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .single();
@@ -61,7 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       async (event, session) => {
         if (event === 'SIGNED_IN' && session) {
           const { data: userData } = await supabase
-            .from('perfiles')
+            .from('profiles')
             .select('*')
             .eq('id', session.user.id)
             .single();
