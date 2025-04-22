@@ -1,15 +1,16 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
+import { addCustomer } from '@/services/order.service';
 
-// Usuarios demo para login rápido basados en la página de usuarios
+// Usuarios demo para login rápido
 const DEMO_USERS = [
   { email: "admin@licorhub.com", password: "admin123", name: "Administrador", role: "admin" },
-  { email: "cliente@licorhub.com", password: "cliente123", name: "Cliente Demo", role: "cliente", address: "Calle 123 #45-67, Bogotá" },
-  { email: "oficinista@licorhub.com", password: "oficinista123", name: "Oficinista Demo", role: "oficinista" },
+  { email: "cliente@licorhub.com", password: "cliente123", name: "Cliente", role: "cliente", address: "Calle 123 #45-67, Bogotá" },
+  { email: "oficinista@licorhub.com", password: "oficinista123", name: "Oficinista", role: "oficinista" },
   { email: "bodeguero@licorhub.com", password: "bodeguero123", name: "Bodeguero", role: "bodeguero" },
-  { email: "domiciliario@licorhub.com", password: "domiciliario123", name: "Domiciliario Demo", role: "domiciliario" },
+  { email: "domiciliario@licorhub.com", password: "domiciliario123", name: "Domiciliario", role: "domiciliario" },
 ];
 
 export interface User {
@@ -17,6 +18,7 @@ export interface User {
   name: string;
   role: string;
   address?: string;
+  id?: number; // Agregar ID para los clientes
 }
 
 interface AuthContextType {
@@ -45,19 +47,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
+  // Cargar usuarios registrados desde localStorage
+  const getRegisteredUsers = () => {
+    const storedUsers = localStorage.getItem("demo_users");
+    return storedUsers ? JSON.parse(storedUsers) : [];
+  };
+
+  // Guardar usuarios registrados en localStorage
+  const saveRegisteredUsers = (users: any[]) => {
+    localStorage.setItem("demo_users", JSON.stringify(users));
+  };
+
   const login = async (email: string, password: string) => {
     setIsLoading(true);
 
-    // Buscar el usuario demo permitido
-    const matched = DEMO_USERS.find(
+    // Combinar usuarios demo con usuarios registrados
+    const registeredUsers = getRegisteredUsers();
+    const allUsers = [...DEMO_USERS, ...registeredUsers];
+
+    // Buscar el usuario
+    const matched = allUsers.find(
       (u) => u.email === email && u.password === password
     );
+    
     if (matched) {
       const userPayload: User = {
         email: matched.email,
         name: matched.name,
         role: matched.role,
-        address: matched.address
+        address: matched.address,
+        id: matched.id
       };
       setUser(userPayload);
       localStorage.setItem("user", JSON.stringify(userPayload));
@@ -80,7 +99,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
 
     // Verificar si el usuario ya existe
-    const existingUser = DEMO_USERS.find(u => u.email === userData.email);
+    const registeredUsers = getRegisteredUsers();
+    const allUsers = [...DEMO_USERS, ...registeredUsers];
+    const existingUser = allUsers.find(u => u.email === userData.email);
+    
     if (existingUser) {
       toast({
         title: "Error de registro",
@@ -91,41 +113,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Crear nuevo usuario
-    const newUser = {
-      email: userData.email,
-      password: userData.password,
-      name: userData.name,
-      role: "cliente",
-      address: userData.address
-    };
+    try {
+      // Crear cliente en el servicio de pedidos
+      const newCustomer = addCustomer({
+        name: userData.name,
+        email: userData.email,
+        address: userData.address
+      });
 
-    // Guardar en memoria local para esta sesión
-    DEMO_USERS.push(newUser);
+      // Crear nuevo usuario
+      const newUser = {
+        email: userData.email,
+        password: userData.password,
+        name: userData.name,
+        role: "cliente",
+        address: userData.address,
+        id: newCustomer.id // Guardar el ID del cliente para usarlo en pedidos
+      };
 
-    // También agregar a localStorage para persistencia
-    const storedUsers = localStorage.getItem("demo_users");
-    const userList = storedUsers ? JSON.parse(storedUsers) : [];
-    userList.push(newUser);
-    localStorage.setItem("demo_users", JSON.stringify(userList));
+      // Guardar en localStorage para persistencia
+      registeredUsers.push(newUser);
+      saveRegisteredUsers(registeredUsers);
 
-    // Iniciar sesión con el nuevo usuario
-    const userPayload: User = {
-      email: newUser.email,
-      name: newUser.name,
-      role: newUser.role,
-      address: newUser.address
-    };
+      // Iniciar sesión con el nuevo usuario
+      const userPayload: User = {
+        email: newUser.email,
+        name: newUser.name,
+        role: newUser.role,
+        address: newUser.address,
+        id: newUser.id
+      };
 
-    setUser(userPayload);
-    localStorage.setItem("user", JSON.stringify(userPayload));
+      setUser(userPayload);
+      localStorage.setItem("user", JSON.stringify(userPayload));
+      
+      toast({
+        title: "Registro exitoso",
+        description: `Bienvenido, ${newUser.name}`,
+      });
+      
+      navigate("/dashboard");
+    } catch (error) {
+      toast({
+        title: "Error de registro",
+        description: "Hubo un problema al registrar el usuario.",
+        variant: "destructive",
+      });
+      console.error(error);
+    }
     
-    toast({
-      title: "Registro exitoso",
-      description: `Bienvenido, ${newUser.name}`,
-    });
-    
-    navigate("/dashboard");
     setIsLoading(false);
   };
 
@@ -147,7 +183,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user.role === 'admin') return true;
     
     // El oficinista puede acceder a todo menos a la gestión de usuarios
-    if (user.role === 'oficinista' && !allowedRoles.includes('usuarios')) return true;
+    if (user.role === 'oficinista' && !allowedRoles.includes('admin')) return true;
     
     // El bodeguero solo puede acceder a pedidos y entregas
     if (user.role === 'bodeguero' && (allowedRoles.includes('pedidos') || allowedRoles.includes('entregas'))) return true;

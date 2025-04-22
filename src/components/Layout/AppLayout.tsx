@@ -16,7 +16,7 @@ const AppLayout: React.FC = () => {
   
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-screen flex w-full flex-col md:flex-row">
         <AppSidebar />
         <div className="flex-1 flex flex-col">
           <TopBar />

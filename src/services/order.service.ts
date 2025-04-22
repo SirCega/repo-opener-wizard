@@ -29,6 +29,7 @@ export interface Order {
   address: string;
   deliveryPersonId?: number;
   deliveryPersonName?: string;
+  warehouseSource?: string; // Nueva propiedad para bodega de origen
 }
 
 export interface Invoice {
@@ -74,7 +75,8 @@ const defaultOrders: Order[] = [
       { productId: 1, productName: "Whisky Premium", quantity: 2, price: 50.00 },
       { productId: 7, productName: "Cerveza Artesanal", quantity: 6, price: 3.00 }
     ],
-    address: "Calle 123 #45-67, Bogotá"
+    address: "Calle 123 #45-67, Bogotá",
+    warehouseSource: "warehouse1"
   },
   {
     id: 2,
@@ -88,7 +90,8 @@ const defaultOrders: Order[] = [
       { productId: 2, productName: "Aguardiente Antioqueño", quantity: 3, price: 20.00 },
       { productId: 4, productName: "Vodka Importado", quantity: 1, price: 32.00 }
     ],
-    address: "Avenida 45 #12-34, Medellín"
+    address: "Avenida 45 #12-34, Medellín",
+    warehouseSource: "mainWarehouse"
   },
   {
     id: 3,
@@ -104,7 +107,8 @@ const defaultOrders: Order[] = [
     ],
     address: "Carrera 67 #89-12, Cali",
     deliveryPersonId: 1,
-    deliveryPersonName: "Luis Torres"
+    deliveryPersonName: "Luis Torres",
+    warehouseSource: "warehouse2"
   }
 ];
 
@@ -176,6 +180,7 @@ const generateOrderNumber = (): string => {
 export const createOrder = (orderData: {
   customerId: number;
   items: OrderItem[];
+  warehouseSource?: string;
 }): Order => {
   const orders = getOrders();
   const customers = getCustomers();
@@ -199,11 +204,12 @@ export const createOrder = (orderData: {
     orderNumber: generateOrderNumber(),
     customer: customer.name,
     customerId: customer.id,
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString().split('T')[0], // Fecha actual
     total,
     status: 'pendiente',
     items: orderData.items,
-    address: customer.address
+    address: customer.address,
+    warehouseSource: orderData.warehouseSource
   };
   
   // Agregar al listado y guardar
@@ -215,15 +221,18 @@ export const createOrder = (orderData: {
   orderData.items.forEach(item => {
     const product = inventory.find(p => p.id === item.productId);
     if (product) {
-      // Restar del inventario de la primera bodega que tenga suficiente stock
-      if (product.warehouse1 >= item.quantity) {
+      // Restar del inventario de la bodega seleccionada
+      if (orderData.warehouseSource === "warehouse1" && product.warehouse1 >= item.quantity) {
         product.warehouse1 -= item.quantity;
-      } else if (product.warehouse2 >= item.quantity) {
+      } else if (orderData.warehouseSource === "warehouse2" && product.warehouse2 >= item.quantity) {
         product.warehouse2 -= item.quantity;
-      } else if (product.warehouse3 >= item.quantity) {
+      } else if (orderData.warehouseSource === "warehouse3" && product.warehouse3 >= item.quantity) {
         product.warehouse3 -= item.quantity;
-      } else if (product.mainWarehouse >= item.quantity) {
+      } else if (orderData.warehouseSource === "mainWarehouse" && product.mainWarehouse >= item.quantity) {
         product.mainWarehouse -= item.quantity;
+      } else {
+        // Si no hay suficiente stock en la bodega seleccionada
+        throw new Error(`No hay suficiente stock del producto "${item.productName}" en la bodega seleccionada`);
       }
       
       updateProduct(product);
@@ -266,8 +275,17 @@ export const updateOrderStatus = (
     orders[index].items.forEach(item => {
       const product = inventory.find(p => p.id === item.productId);
       if (product) {
-        // Sumar al inventario de la bodega principal
-        product.mainWarehouse += item.quantity;
+        // Restaurar al inventario de la bodega de origen
+        if (orders[index].warehouseSource === "warehouse1") {
+          product.warehouse1 += item.quantity;
+        } else if (orders[index].warehouseSource === "warehouse2") {
+          product.warehouse2 += item.quantity;
+        } else if (orders[index].warehouseSource === "warehouse3") {
+          product.warehouse3 += item.quantity;
+        } else {
+          product.mainWarehouse += item.quantity;
+        }
+        
         updateProduct(product);
       }
     });
@@ -372,7 +390,7 @@ export const useOrderService = () => {
     addCustomer,
     getOrders,
     
-    createOrder: (orderData: { customerId: number; items: OrderItem[] }) => {
+    createOrder: (orderData: { customerId: number; items: OrderItem[], warehouseSource?: string }) => {
       try {
         const newOrder = createOrder(orderData);
         toast({
@@ -458,6 +476,62 @@ export const useOrderService = () => {
       } catch (error: any) {
         toast({
           title: "Error al pagar la factura",
+          description: error.message,
+          variant: "destructive"
+        });
+        throw error;
+      }
+    },
+
+    // Función para generar PDF de factura
+    generateInvoicePDF: (invoiceId: number) => {
+      try {
+        const invoices = getInvoices();
+        const invoice = invoices.find(i => i.id === invoiceId);
+        
+        if (!invoice) {
+          throw new Error(`Factura con ID ${invoiceId} no encontrada`);
+        }
+        
+        // En un sistema real, aquí se generaría el PDF
+        // Simulamos un éxito
+        toast({
+          title: "PDF generado",
+          description: `La factura #${invoice.invoiceNumber} ha sido generada como PDF.`
+        });
+        
+        return true;
+      } catch (error: any) {
+        toast({
+          title: "Error al generar PDF",
+          description: error.message,
+          variant: "destructive"
+        });
+        throw error;
+      }
+    },
+
+    // Función para imprimir factura
+    printInvoice: (invoiceId: number) => {
+      try {
+        const invoices = getInvoices();
+        const invoice = invoices.find(i => i.id === invoiceId);
+        
+        if (!invoice) {
+          throw new Error(`Factura con ID ${invoiceId} no encontrada`);
+        }
+        
+        // En un sistema real, aquí se enviaría a imprimir
+        // Simulamos un éxito
+        toast({
+          title: "Enviado a imprimir",
+          description: `La factura #${invoice.invoiceNumber} ha sido enviada a la impresora.`
+        });
+        
+        return true;
+      } catch (error: any) {
+        toast({
+          title: "Error al imprimir",
           description: error.message,
           variant: "destructive"
         });

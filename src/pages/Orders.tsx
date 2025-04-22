@@ -57,6 +57,7 @@ const Orders: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [isViewOrderDialogOpen, setIsViewOrderDialogOpen] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
+  const [selectedWarehouse, setSelectedWarehouse] = useState('');
   const { toast } = useToast();
   const orderService = useOrderService();
   const inventoryService = useInventoryService();
@@ -65,7 +66,7 @@ const Orders: React.FC = () => {
   // Estado para los datos
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [products, setProducts] = useState<{ id: number, name: string, price: number, stock: number }[]>([]);
+  const [products, setProducts] = useState<{ id: number, name: string, price: number, stock: number, warehouse1: number, warehouse2: number, warehouse3: number, mainWarehouse: number }[]>([]);
   
   // New order state
   const [newOrderItems, setNewOrderItems] = useState<OrderItem[]>([]);
@@ -78,7 +79,11 @@ const Orders: React.FC = () => {
       id: p.id,
       name: p.name,
       price: p.price,
-      stock: p.mainWarehouse + p.warehouse1 + p.warehouse2 + p.warehouse3
+      stock: p.mainWarehouse + p.warehouse1 + p.warehouse2 + p.warehouse3,
+      warehouse1: p.warehouse1,
+      warehouse2: p.warehouse2,
+      warehouse3: p.warehouse3,
+      mainWarehouse: p.mainWarehouse
     }));
     
     setCustomers(loadCustomers);
@@ -105,6 +110,9 @@ const Orders: React.FC = () => {
       return matchesSearch && (statusFilter === 'all' ? 
         (order.status === 'preparacion') : 
         (order.status === statusFilter && order.status === 'preparacion'));
+    } else if (user?.role === 'domiciliario') {
+      // Domiciliario solo ve pedidos asignados a él
+      return matchesSearch && matchesStatus && order.deliveryPersonName === user.name;
     } else {
       // Admin y oficinista ven todos los pedidos
       return matchesSearch && matchesStatus;
@@ -144,11 +152,20 @@ const Orders: React.FC = () => {
   };
 
   const handleCreateOrder = () => {
+    if (!selectedWarehouse) {
+      toast({
+        title: "Error",
+        description: "Por favor seleccione una bodega de origen",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (user?.role === 'cliente') {
       // Si es cliente, usar sus datos automáticamente
-      const clientCustomer = customers.find(c => c.name === user.name);
+      const clientCustomerId = user.id;
       
-      if (!clientCustomer) {
+      if (!clientCustomerId) {
         toast({
           title: "Error",
           description: "No se encontraron tus datos de cliente",
@@ -167,10 +184,11 @@ const Orders: React.FC = () => {
       }
       
       try {
-        // Crear el pedido
+        // Crear el pedido con la bodega seleccionada
         const newOrder = orderService.createOrder({
-          customerId: clientCustomer.id,
-          items: newOrderItems
+          customerId: clientCustomerId,
+          items: newOrderItems,
+          warehouseSource: selectedWarehouse
         });
         
         // Actualizar la lista de pedidos
@@ -178,6 +196,7 @@ const Orders: React.FC = () => {
         
         // Reset form
         setNewOrderItems([]);
+        setSelectedWarehouse('');
         setIsNewOrderDialogOpen(false);
         
         toast({
@@ -199,10 +218,11 @@ const Orders: React.FC = () => {
       }
 
       try {
-        // Crear el pedido
+        // Crear el pedido con la bodega seleccionada
         const newOrder = orderService.createOrder({
           customerId: parseInt(selectedCustomer),
-          items: newOrderItems
+          items: newOrderItems,
+          warehouseSource: selectedWarehouse
         });
         
         // Actualizar la lista de pedidos
@@ -211,6 +231,7 @@ const Orders: React.FC = () => {
         // Reset form
         setSelectedCustomer('');
         setNewOrderItems([]);
+        setSelectedWarehouse('');
         setIsNewOrderDialogOpen(false);
       } catch (error: any) {
         console.error(error);
@@ -279,10 +300,28 @@ const Orders: React.FC = () => {
     }
   };
 
+  // Filtrar productos disponibles según la bodega seleccionada
+  const getAvailableProducts = () => {
+    if (!selectedWarehouse) return products.filter(p => p.stock > 0);
+    
+    switch (selectedWarehouse) {
+      case 'warehouse1':
+        return products.filter(p => p.warehouse1 > 0);
+      case 'warehouse2':
+        return products.filter(p => p.warehouse2 > 0);
+      case 'warehouse3':
+        return products.filter(p => p.warehouse3 > 0);
+      case 'mainWarehouse':
+        return products.filter(p => p.mainWarehouse > 0);
+      default:
+        return products.filter(p => p.stock > 0);
+    }
+  };
+
   // Vista específica para cliente
   if (user?.role === 'cliente') {
     // Filtrar productos disponibles (con stock > 0)
-    const availableProducts = products.filter(p => p.stock > 0);
+    const availableProducts = getAvailableProducts();
     
     return (
       <div className="space-y-6">
@@ -330,9 +369,25 @@ const Orders: React.FC = () => {
                       </DialogHeader>
                       <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
-                          <div className="flex justify-between items-center">
+                          <Label>Seleccionar Bodega</Label>
+                          <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar Bodega" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="mainWarehouse">Bodega Principal</SelectItem>
+                              <SelectItem value="warehouse1">Bodega 1</SelectItem>
+                              <SelectItem value="warehouse2">Bodega 2</SelectItem>
+                              <SelectItem value="warehouse3">Bodega 3</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          
+                          <div className="flex justify-between items-center mt-4">
                             <Label>Productos Disponibles</Label>
-                            <Select onValueChange={(value) => addProductToOrder(parseInt(value))}>
+                            <Select 
+                              onValueChange={(value) => addProductToOrder(parseInt(value))}
+                              disabled={!selectedWarehouse}
+                            >
                               <SelectTrigger className="w-[200px]">
                                 <SelectValue placeholder="Añadir Producto" />
                               </SelectTrigger>
@@ -534,6 +589,17 @@ const Orders: React.FC = () => {
                         <p className="text-sm">{currentOrder.deliveryPersonName}</p>
                       </div>
                     )}
+                    {currentOrder.warehouseSource && (
+                      <div className="col-span-2">
+                        <h3 className="text-sm font-medium mb-1">Bodega de Origen</h3>
+                        <p className="text-sm">
+                          {currentOrder.warehouseSource === 'mainWarehouse' && 'Bodega Principal'}
+                          {currentOrder.warehouseSource === 'warehouse1' && 'Bodega 1'}
+                          {currentOrder.warehouseSource === 'warehouse2' && 'Bodega 2'}
+                          {currentOrder.warehouseSource === 'warehouse3' && 'Bodega 3'}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="mt-4">
@@ -567,15 +633,6 @@ const Orders: React.FC = () => {
                   </div>
                 </div>
                 <DialogFooter className="flex flex-col sm:flex-row gap-2">
-                  {currentOrder.status === 'pendiente' && user?.role !== 'cliente' && (
-                    <Button 
-                      variant="outline"
-                      className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200"
-                      onClick={() => updateOrderStatus('preparacion')}
-                    >
-                      Pasar a Preparación
-                    </Button>
-                  )}
                   <Button 
                     variant="outline"
                     onClick={() => setIsViewOrderDialogOpen(false)}
@@ -704,6 +761,17 @@ const Orders: React.FC = () => {
                       <h3 className="text-sm font-medium mb-1">Dirección de Entrega</h3>
                       <p className="text-sm">{currentOrder.address}</p>
                     </div>
+                    {currentOrder.warehouseSource && (
+                      <div className="col-span-2">
+                        <h3 className="text-sm font-medium mb-1">Bodega de Origen</h3>
+                        <p className="text-sm">
+                          {currentOrder.warehouseSource === 'mainWarehouse' && 'Bodega Principal'}
+                          {currentOrder.warehouseSource === 'warehouse1' && 'Bodega 1'}
+                          {currentOrder.warehouseSource === 'warehouse2' && 'Bodega 2'}
+                          {currentOrder.warehouseSource === 'warehouse3' && 'Bodega 3'}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="mt-4">
@@ -740,7 +808,7 @@ const Orders: React.FC = () => {
                   {currentOrder.status === 'preparacion' && (
                     <div className="mt-4">
                       <Label htmlFor="deliveryPerson">Asignar Domiciliario</Label>
-                      <Select>
+                      <Select defaultValue="1">
                         <SelectTrigger className="mt-2">
                           <SelectValue placeholder="Seleccionar Domiciliario" />
                         </SelectTrigger>
@@ -761,6 +829,193 @@ const Orders: React.FC = () => {
                       onClick={() => updateOrderStatus('enviado', 1, 'Luis Torres')}
                     >
                       Marcar como Enviado
+                    </Button>
+                  )}
+                  <Button 
+                    variant="outline"
+                    onClick={() => setIsViewOrderDialogOpen(false)}
+                  >
+                    Cerrar
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
+  // Vista para domiciliario
+  if (user?.role === 'domiciliario') {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Mis Entregas</h1>
+          <p className="text-muted-foreground">
+            Entregas asignadas y su estado.
+          </p>
+        </div>
+        
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <CardTitle>Pedidos Asignados</CardTitle>
+                <CardDescription>
+                  Pedidos que necesitan ser entregados
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0 mb-4">
+              <div className="flex flex-col space-y-2 md:flex-row md:space-y-0 md:space-x-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder="Buscar pedido..."
+                    className="pl-8 md:w-[300px]"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="md:w-[180px]">
+                    <div className="flex items-center">
+                      <Filter className="mr-2 h-4 w-4" />
+                      <SelectValue placeholder="Estado" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="enviado">Por Entregar</SelectItem>
+                    <SelectItem value="entregado">Entregados</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+              
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[100px]">Nº Pedido</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Dirección</TableHead>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead className="text-center">Estado</TableHead>
+                    <TableHead className="text-center">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredOrders.length > 0 ? (
+                    filteredOrders.map((order) => (
+                      <TableRow key={order.id}>
+                        <TableCell className="font-medium">{order.orderNumber}</TableCell>
+                        <TableCell>{order.customer}</TableCell>
+                        <TableCell>{order.address}</TableCell>
+                        <TableCell>{new Date(order.date).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-center">{getStatusBadge(order.status)}</TableCell>
+                        <TableCell>
+                          <div className="flex justify-center">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => viewOrder(order)}
+                            >
+                              Ver Detalles
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
+                        No hay pedidos asignados actualmente.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* View Order Dialog for Domiciliario */}
+        <Dialog open={isViewOrderDialogOpen} onOpenChange={setIsViewOrderDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            {currentOrder && (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center">
+                    <ShoppingCart className="mr-2 h-5 w-5" />
+                    Detalles del Pedido #{currentOrder.orderNumber}
+                  </DialogTitle>
+                  <DialogDescription>
+                    Fecha: {new Date(currentOrder.date).toLocaleDateString()}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <h3 className="text-sm font-medium mb-1">Cliente</h3>
+                      <p className="text-sm">{currentOrder.customer}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium mb-1">Estado</h3>
+                      <div>{getStatusBadge(currentOrder.status)}</div>
+                    </div>
+                    <div className="col-span-2">
+                      <h3 className="text-sm font-medium mb-1">Dirección de Entrega</h3>
+                      <p className="text-sm">{currentOrder.address}</p>
+                    </div>
+                    {currentOrder.warehouseSource && (
+                      <div className="col-span-2">
+                        <h3 className="text-sm font-medium mb-1">Bodega de Origen</h3>
+                        <p className="text-sm">
+                          {currentOrder.warehouseSource === 'mainWarehouse' && 'Bodega Principal'}
+                          {currentOrder.warehouseSource === 'warehouse1' && 'Bodega 1'}
+                          {currentOrder.warehouseSource === 'warehouse2' && 'Bodega 2'}
+                          {currentOrder.warehouseSource === 'warehouse3' && 'Bodega 3'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="mt-4">
+                    <h3 className="text-sm font-medium mb-2">Productos</h3>
+                    <div className="border rounded-md">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Producto</TableHead>
+                            <TableHead className="text-right">Cantidad</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {currentOrder.items?.map((item, index) => (
+                            <TableRow key={index}>
+                              <TableCell>{item.productName}</TableCell>
+                              <TableCell className="text-right">{item.quantity}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter className="flex flex-col sm:flex-row gap-2">
+                  {currentOrder.status === 'enviado' && (
+                    <Button 
+                      variant="outline" 
+                      className="bg-green-100 text-green-800 border-green-200 hover:bg-green-200"
+                      onClick={() => updateOrderStatus('entregado')}
+                    >
+                      Marcar como Entregado
                     </Button>
                   )}
                   <Button 
@@ -894,16 +1149,34 @@ const Orders: React.FC = () => {
                         </p>
                       )}
                     </div>
+
+                    <div className="grid gap-2">
+                      <Label>Seleccionar Bodega</Label>
+                      <Select value={selectedWarehouse} onValueChange={setSelectedWarehouse}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccionar Bodega" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mainWarehouse">Bodega Principal</SelectItem>
+                          <SelectItem value="warehouse1">Bodega 1</SelectItem>
+                          <SelectItem value="warehouse2">Bodega 2</SelectItem>
+                          <SelectItem value="warehouse3">Bodega 3</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                     
                     <div className="grid gap-2">
                       <div className="flex justify-between items-center">
                         <Label>Productos</Label>
-                        <Select onValueChange={(value) => addProductToOrder(parseInt(value))}>
+                        <Select 
+                          onValueChange={(value) => addProductToOrder(parseInt(value))}
+                          disabled={!selectedWarehouse || !selectedCustomer}
+                        >
                           <SelectTrigger className="w-[200px]">
                             <SelectValue placeholder="Añadir Producto" />
                           </SelectTrigger>
                           <SelectContent>
-                            {products.map(product => (
+                            {getAvailableProducts().map(product => (
                               <SelectItem key={product.id} value={product.id.toString()}>
                                 {product.name} - ${product.price.toFixed(2)}
                               </SelectItem>
@@ -1112,6 +1385,17 @@ const Orders: React.FC = () => {
                     <div className="col-span-2">
                       <h3 className="text-sm font-medium mb-1">Repartidor</h3>
                       <p className="text-sm">{currentOrder.deliveryPersonName}</p>
+                    </div>
+                  )}
+                  {currentOrder.warehouseSource && (
+                    <div className="col-span-2">
+                      <h3 className="text-sm font-medium mb-1">Bodega de Origen</h3>
+                      <p className="text-sm">
+                        {currentOrder.warehouseSource === 'mainWarehouse' && 'Bodega Principal'}
+                        {currentOrder.warehouseSource === 'warehouse1' && 'Bodega 1'}
+                        {currentOrder.warehouseSource === 'warehouse2' && 'Bodega 2'}
+                        {currentOrder.warehouseSource === 'warehouse3' && 'Bodega 3'}
+                      </p>
                     </div>
                   )}
                 </div>
