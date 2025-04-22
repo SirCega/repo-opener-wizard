@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/lib/supabase';
 
 interface User {
   id: number;
@@ -17,15 +18,6 @@ interface AuthContextType {
   isLoading: boolean;
 }
 
-// Mock users for demonstration
-const MOCK_USERS = [
-  { id: 1, name: 'Admin User', email: 'admin@licorhub.com', password: 'admin123', role: 'admin' },
-  { id: 2, name: 'Cliente Demo', email: 'cliente@licorhub.com', password: 'cliente123', role: 'cliente' },
-  { id: 3, name: 'Oficinista Demo', email: 'oficinista@licorhub.com', password: 'oficinista123', role: 'oficinista' },
-  { id: 4, name: 'Bodeguero Demo', email: 'bodeguero@licorhub.com', password: 'bodeguero123', role: 'bodeguero' },
-  { id: 5, name: 'Domiciliario Demo', email: 'domiciliario@licorhub.com', password: 'domiciliario123', role: 'domiciliario' },
-];
-
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -35,43 +27,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if user is stored in localStorage
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
-  }, []);
+    // Check Supabase session on initial load
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        // Fetch additional user details from your users table if needed
+        const { data: userData } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (userData) {
+          setUser(userData);
+        }
+      }
+      
+      setIsLoading(false);
+    };
+
+    checkSession();
+
+    // Listen for auth state changes
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN') {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session?.user.id)
+            .single();
+
+          if (userData) {
+            setUser(userData);
+            navigate('/dashboard');
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          navigate('/login');
+        }
+      }
+    );
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [navigate]);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     
     try {
-      // Simulate API call with a delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
       
-      // Find user with provided credentials
-      const foundUser = MOCK_USERS.find(
-        u => u.email === email && u.password === password
-      );
-      
-      if (foundUser) {
-        // Remove password before storing in state and localStorage
-        const { password, ...userWithoutPassword } = foundUser;
-        setUser(userWithoutPassword);
-        localStorage.setItem('user', JSON.stringify(userWithoutPassword));
-        
-        toast({
-          title: "Inicio de sesión exitoso",
-          description: `Bienvenido/a, ${userWithoutPassword.name}`,
-          variant: "default",
-        });
-        
-        navigate('/dashboard');
-      } else {
+      if (error) {
         toast({
           title: "Error de autenticación",
-          description: "Credenciales incorrectas. Por favor, inténtalo de nuevo.",
+          description: error.message,
           variant: "destructive",
         });
       }
@@ -86,7 +102,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
     localStorage.removeItem('user');
     toast({
