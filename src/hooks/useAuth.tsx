@@ -33,7 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (session) {
         // Fetch additional user details from your users table if needed
         const { data: userData } = await supabase
-          .from('profiles')
+          .from('perfiles')
           .select('*')
           .eq('id', session.user.id)
           .single();
@@ -60,7 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       async (event, session) => {
         if (event === 'SIGNED_IN' && session) {
           const { data: userData } = await supabase
-            .from('profiles')
+            .from('perfiles')
             .select('*')
             .eq('id', session.user.id)
             .single();
