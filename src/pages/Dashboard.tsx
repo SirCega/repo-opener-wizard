@@ -1,8 +1,9 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3, Package, ShoppingCart, TrendingUp, Users, Truck, AlertTriangle } from 'lucide-react';
+import { BarChart3, Package, ShoppingCart, TrendingUp, Users, Truck, AlertTriangle, Calendar } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 import { 
   AreaChart, 
   Area, 
@@ -27,6 +28,18 @@ const salesData = [
   { month: 'Jul', valor: 3490 },
 ];
 
+// Mock data for daily sales
+const dailySalesData = [
+  { hour: '6AM', valor: 120 },
+  { hour: '8AM', valor: 280 },
+  { hour: '10AM', valor: 450 },
+  { hour: '12PM', valor: 670 },
+  { hour: '2PM', valor: 890 },
+  { hour: '4PM', valor: 1200 },
+  { hour: '6PM', valor: 980 },
+  { hour: '8PM', valor: 760 },
+];
+
 const inventoryData = [
   { name: 'Whisky', bodegaMadre: 120, bodega1: 30, bodega2: 45, bodega3: 35 },
   { name: 'Aguardiente', bodegaMadre: 200, bodega1: 50, bodega2: 40, bodega3: 60 },
@@ -43,6 +56,20 @@ const lowStockItems = [
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [periodView, setPeriodView] = useState<'day' | 'month'>('month');
+  
+  // Calcular total de ventas del día
+  const totalDailySales = dailySalesData.reduce((sum, item) => sum + item.valor, 0);
+  
+  // Function to handle view change
+  const handleViewChange = (view: 'day' | 'month') => {
+    setPeriodView(view);
+    toast({
+      title: `Vista cambiada a ventas por ${view === 'day' ? 'día' : 'mes'}`,
+      description: "El gráfico ha sido actualizado con los nuevos datos."
+    });
+  };
   
   return (
     <div className="space-y-6">
@@ -103,6 +130,61 @@ const Dashboard: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Daily Sales Stats */}
+      <Card className="bg-gradient-to-r from-primary/5 to-primary/10">
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-lg">Ventas del Día</CardTitle>
+            <div className="flex space-x-2">
+              <button 
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${periodView === 'day' ? 'bg-primary text-white' : 'bg-primary/20 hover:bg-primary/30'}`}
+                onClick={() => handleViewChange('day')}
+              >
+                Día
+              </button>
+              <button 
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${periodView === 'month' ? 'bg-primary text-white' : 'bg-primary/20 hover:bg-primary/30'}`}
+                onClick={() => handleViewChange('month')}
+              >
+                Mes
+              </button>
+            </div>
+          </div>
+          <CardDescription>
+            {periodView === 'day' 
+              ? `Hoy: ${new Date().toLocaleDateString()} - Total: $${totalDailySales.toFixed(2)}` 
+              : 'Tendencia de ventas durante el año actual'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            {periodView === 'day' ? (
+              <BarChart data={dailySalesData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="hour" />
+                <YAxis />
+                <Tooltip formatter={(value) => [`$${value}`, 'Ventas']} />
+                <Bar dataKey="valor" name="Ventas" fill="hsl(var(--primary))" />
+              </BarChart>
+            ) : (
+              <AreaChart data={salesData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorVentas" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="month" />
+                <YAxis />
+                <CartesianGrid strokeDasharray="3 3" />
+                <Tooltip formatter={(value) => [`$${value}`, 'Ventas']} />
+                <Area type="monotone" dataKey="valor" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorVentas)" />
+              </AreaChart>
+            )}
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
       
       {/* Charts */}
       <div className="grid gap-6 md:grid-cols-2">

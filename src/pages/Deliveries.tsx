@@ -1,9 +1,21 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Filter, ArrowUpDown, Truck, MapPin, User } from 'lucide-react';
+import {
+  Search,
+  Filter,
+  MapPin,
+  Truck,
+  Package,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+  CalendarRange,
+  MapIcon,
+  UserCircle
+} from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -26,226 +38,171 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+import { Order, getOrders, useOrderService } from '@/services/order.service';
 
-// Mock data for deliveries
-const deliveriesData = [
-  {
-    id: 1,
-    orderNumber: "ORD-001",
-    customer: "Juan Pérez",
-    address: "Calle 123 #45-67, Bogotá",
-    date: "2024-04-15",
-    status: "pendiente",
-    deliveryDriver: "",
-    items: 3,
-    total: 124.50,
-    estimatedDelivery: "2024-04-16",
-    phone: "301-555-1234"
-  },
-  {
-    id: 2,
-    orderNumber: "ORD-002",
-    customer: "María López",
-    address: "Avenida 45 #12-34, Medellín",
-    date: "2024-04-14",
-    status: "asignado",
-    deliveryDriver: "Carlos Ruiz",
-    items: 2,
-    total: 78.20,
-    estimatedDelivery: "2024-04-15",
-    phone: "302-555-5678"
-  },
-  {
-    id: 3,
-    orderNumber: "ORD-003",
-    customer: "Carlos Rodríguez",
-    address: "Carrera 67 #89-12, Cali",
-    date: "2024-04-13",
-    status: "en_ruta",
-    deliveryDriver: "Ana Castro",
-    items: 5,
-    total: 245.00,
-    estimatedDelivery: "2024-04-14",
-    phone: "303-555-9012"
-  },
-  {
-    id: 4,
-    orderNumber: "ORD-004",
-    customer: "Ana Martínez",
-    address: "Calle 34 #56-78, Barranquilla",
-    date: "2024-04-10",
-    status: "entregado",
-    deliveryDriver: "Luis Torres",
-    items: 1,
-    total: 56.75,
-    estimatedDelivery: "2024-04-11",
-    phone: "304-555-3456"
-  },
-  {
-    id: 5,
-    orderNumber: "ORD-005",
-    customer: "Pedro Sánchez",
-    address: "Avenida 78 #90-12, Bucaramanga",
-    date: "2024-04-08",
-    status: "cancelado",
-    deliveryDriver: "Luis Torres",
-    items: 4,
-    total: 189.30,
-    estimatedDelivery: "2024-04-09",
-    phone: "305-555-7890"
-  },
-  {
-    id: 6,
-    orderNumber: "ORD-006",
-    customer: "Sofía Gutiérrez",
-    address: "Carrera 23 #45-67, Cartagena",
-    date: "2024-04-05",
-    status: "entregado",
-    deliveryDriver: "Ana Castro",
-    items: 3,
-    total: 120.00,
-    estimatedDelivery: "2024-04-06",
-    phone: "306-555-1234"
-  },
-  {
-    id: 7,
-    orderNumber: "ORD-008",
-    customer: "Carmen Díaz",
-    address: "Avenida 12 #34-56, Pereira",
-    date: "2024-04-01",
-    status: "entregado",
-    deliveryDriver: "Carlos Ruiz",
-    items: 6,
-    total: 345.25,
-    estimatedDelivery: "2024-04-02",
-    phone: "308-555-9012"
-  }
-];
-
-// Mock data for delivery drivers
-const driversData = [
-  { id: 1, name: "Carlos Ruiz", available: true, deliveries: 24, successRate: 98 },
-  { id: 2, name: "Ana Castro", available: true, deliveries: 32, successRate: 95 },
-  { id: 3, name: "Luis Torres", available: false, deliveries: 18, successRate: 92 },
-  { id: 4, name: "Elena Vargas", available: true, deliveries: 15, successRate: 97 },
+// Datos de domiciliarios
+const deliveryPeople = [
+  { id: 1, name: "Luis Torres", phone: "555-1234", status: "disponible", deliveries: 34, rating: 4.7 },
+  { id: 2, name: "Ana García", phone: "555-5678", status: "disponible", deliveries: 27, rating: 4.9 },
+  { id: 3, name: "Carlos López", phone: "555-9012", status: "ocupado", deliveries: 42, rating: 4.5 },
+  { id: 4, name: "María Rodríguez", phone: "555-3456", status: "ocupado", deliveries: 18, rating: 4.8 },
+  { id: 5, name: "Javier Sánchez", phone: "555-7890", status: "disponible", deliveries: 22, rating: 4.6 },
 ];
 
 const Deliveries: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sortField, setSortField] = useState('date');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [currentTab, setCurrentTab] = useState('pending');
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
+  const [isAssignDeliveryDialogOpen, setIsAssignDeliveryDialogOpen] = useState(false);
   const [isViewDeliveryDialogOpen, setIsViewDeliveryDialogOpen] = useState(false);
-  const [currentDelivery, setCurrentDelivery] = useState<typeof deliveriesData[0] | null>(null);
-  const [isAssignDriverDialogOpen, setIsAssignDriverDialogOpen] = useState(false);
-  const [selectedDriver, setSelectedDriver] = useState('');
+  const [selectedDeliveryPerson, setSelectedDeliveryPerson] = useState<number | null>(null);
   const { toast } = useToast();
+  const orderService = useOrderService();
   
-  const handleSort = (field: string) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder('asc');
+  // Cargar pedidos
+  useEffect(() => {
+    const loadOrders = getOrders();
+    setOrders(loadOrders);
+  }, []);
+  
+  // Pedidos que son entregas (preparados o enviados)
+  const pendingDeliveries = orders.filter(order => 
+    order.status === 'preparacion'
+  );
+  
+  const activeDeliveries = orders.filter(order => 
+    order.status === 'enviado'
+  );
+  
+  const completedDeliveries = orders.filter(order => 
+    order.status === 'entregado'
+  );
+  
+  // Filtrar entregas según búsqueda, estado y pestaña
+  const getFilteredDeliveries = () => {
+    let filteredOrders: Order[] = [];
+    
+    switch (currentTab) {
+      case 'pending':
+        filteredOrders = pendingDeliveries;
+        break;
+      case 'active':
+        filteredOrders = activeDeliveries;
+        break;
+      case 'completed':
+        filteredOrders = completedDeliveries;
+        break;
+      case 'all':
+      default:
+        filteredOrders = [...pendingDeliveries, ...activeDeliveries, ...completedDeliveries];
+        break;
     }
-  };
-  
-  const filteredDeliveries = deliveriesData
-    .filter(delivery => 
+    
+    return filteredOrders.filter(order => 
       (searchQuery === '' || 
-        delivery.customer.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        delivery.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        delivery.address.toLowerCase().includes(searchQuery.toLowerCase())) &&
-      (statusFilter === 'all' || delivery.status === statusFilter)
-    )
-    .sort((a, b) => {
-      const aValue = a[sortField as keyof typeof a];
-      const bValue = b[sortField as keyof typeof b];
-      
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortOrder === 'asc' 
-          ? aValue.localeCompare(bValue) 
-          : bValue.localeCompare(aValue);
-      } else if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
-      }
-      return 0;
-    });
-
-  const pendingDeliveries = deliveriesData.filter(d => d.status === 'pendiente');
-  const inProgressDeliveries = deliveriesData.filter(d => d.status === 'asignado' || d.status === 'en_ruta');
-  const completedDeliveries = deliveriesData.filter(d => d.status === 'entregado');
+        order.customer.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())) &&
+      (statusFilter === 'all' || order.status === statusFilter)
+    );
+  };
   
-  const viewDelivery = (delivery: typeof deliveriesData[0]) => {
-    setCurrentDelivery(delivery);
-    setIsViewDeliveryDialogOpen(true);
-  };
-
-  const openAssignDriverDialog = (delivery: typeof deliveriesData[0]) => {
-    setCurrentDelivery(delivery);
-    setSelectedDriver('');
-    setIsAssignDriverDialogOpen(true);
-  };
-
-  const handleAssignDriver = () => {
-    if (currentDelivery && selectedDriver) {
-      // Here you would normally update the delivery in your API
-      toast({
-        title: "Domiciliario asignado",
-        description: `${driversData.find(d => d.id === parseInt(selectedDriver))?.name} ha sido asignado al pedido ${currentDelivery.orderNumber}`
-      });
-      setIsAssignDriverDialogOpen(false);
-    } else {
+  const filteredDeliveries = getFilteredDeliveries();
+  
+  // Asignar domiciliario
+  const assignDeliveryPerson = () => {
+    if (!currentOrder || !selectedDeliveryPerson) {
       toast({
         title: "Error",
-        description: "Por favor seleccione un domiciliario",
+        description: "Debe seleccionar un domiciliario",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    try {
+      // Buscar el domiciliario seleccionado
+      const deliveryPerson = deliveryPeople.find(d => d.id === selectedDeliveryPerson);
+      
+      if (!deliveryPerson) {
+        throw new Error("Domiciliario no encontrado");
+      }
+      
+      // Actualizar el estado del pedido a enviado
+      const updatedOrder = orderService.updateOrderStatus(
+        currentOrder.id,
+        'enviado',
+        deliveryPerson.id,
+        deliveryPerson.name
+      );
+      
+      // Actualizar la lista de pedidos
+      setOrders(orders.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+      
+      toast({
+        title: "Domiciliario asignado",
+        description: `${deliveryPerson.name} ha sido asignado al pedido #${currentOrder.orderNumber}`
+      });
+      
+      // Cerrar diálogo y limpiar selección
+      setIsAssignDeliveryDialogOpen(false);
+      setSelectedDeliveryPerson(null);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
         variant: "destructive"
       });
     }
   };
-
-  const updateDeliveryStatus = (status: string) => {
-    if (currentDelivery) {
-      // Here you would normally update the delivery in your API
+  
+  // Ver detalle de entrega
+  const viewDelivery = (order: Order) => {
+    setCurrentOrder(order);
+    setIsViewDeliveryDialogOpen(true);
+  };
+  
+  // Marcar pedido como entregado
+  const markAsDelivered = () => {
+    if (!currentOrder) return;
+    
+    try {
+      // Actualizar el estado del pedido a entregado
+      const updatedOrder = orderService.updateOrderStatus(
+        currentOrder.id,
+        'entregado'
+      );
+      
+      // Actualizar la lista de pedidos
+      setOrders(orders.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+      
       toast({
-        title: "Estado actualizado",
-        description: `La entrega ${currentDelivery.orderNumber} ha sido actualizada a "${
-          status === 'entregado' ? 'Entregado' : 
-          status === 'en_ruta' ? 'En Ruta' : 
-          status === 'asignado' ? 'Asignado' : 
-          status === 'cancelado' ? 'Cancelado' : 
-          'Pendiente'
-        }"`
+        title: "Entrega completada",
+        description: `El pedido #${currentOrder.orderNumber} ha sido entregado exitosamente.`
       });
+      
+      // Cerrar diálogo
       setIsViewDeliveryDialogOpen(false);
+    } catch (error: any) {
+      console.error(error);
     }
   };
-
-  const getStatusBadge = (status: string) => {
+  
+  // Mostrar badge según estado
+  const getStatusBadge = (status: Order['status']) => {
     switch (status) {
       case 'pendiente':
         return <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">Pendiente</Badge>;
-      case 'asignado':
-        return <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200">Asignado</Badge>;
-      case 'en_ruta':
-        return <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">En Ruta</Badge>;
+      case 'preparacion':
+        return <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200">En Preparación</Badge>;
+      case 'enviado':
+        return <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-200">En Camino</Badge>;
       case 'entregado':
         return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">Entregado</Badge>;
       case 'cancelado':
@@ -254,7 +211,7 @@ const Deliveries: React.FC = () => {
         return <Badge variant="outline">{status}</Badge>;
     }
   };
-
+  
   return (
     <div className="space-y-6">
       <div>
@@ -263,87 +220,80 @@ const Deliveries: React.FC = () => {
           Gestión y seguimiento de entregas a domicilio.
         </p>
       </div>
-
-      <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
-        <Card className="md:w-1/3">
+      
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Resumen de Entregas</CardTitle>
-            <CardDescription>Última actualización: {new Date().toLocaleDateString()}</CardDescription>
+            <div className="flex items-center space-x-2">
+              <Clock className="h-4 w-4 text-amber-500" />
+              <CardTitle className="text-lg">Pendientes</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Pendientes</span>
-                <span className="font-medium">{pendingDeliveries.length}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">En Proceso</span>
-                <span className="font-medium">{inProgressDeliveries.length}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Completadas (hoy)</span>
-                <span className="font-medium">{
-                  completedDeliveries.filter(d => 
-                    new Date(d.date).toDateString() === new Date().toDateString()
-                  ).length
-                }</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Canceladas</span>
-                <span className="font-medium">{deliveriesData.filter(d => d.status === 'cancelado').length}</span>
-              </div>
-            </div>
+            <div className="text-3xl font-bold mb-2">{pendingDeliveries.length}</div>
+            <p className="text-sm text-muted-foreground">Pedidos listos para asignar</p>
           </CardContent>
         </Card>
         
-        <Card className="md:w-2/3">
+        <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Domiciliarios Disponibles</CardTitle>
-            <CardDescription>Estado actual de los domiciliarios</CardDescription>
+            <div className="flex items-center space-x-2">
+              <Truck className="h-4 w-4 text-purple-500" />
+              <CardTitle className="text-lg">En Camino</CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {driversData.map(driver => (
-                <div key={driver.id} className="flex items-start space-x-4 p-3 border rounded-md">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between">
-                      <h3 className="font-medium">{driver.name}</h3>
-                      {driver.available ? (
-                        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">Disponible</Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200">En Ruta</Badge>
-                      )}
-                    </div>
-                    <div className="text-sm text-muted-foreground flex justify-between mt-1">
-                      <span>Entregas: {driver.deliveries}</span>
-                      <span>Éxito: {driver.successRate}%</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="text-3xl font-bold mb-2">{activeDeliveries.length}</div>
+            <p className="text-sm text-muted-foreground">Pedidos en proceso de entrega</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              <CardTitle className="text-lg">Completadas</CardTitle>
             </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold mb-2">{completedDeliveries.length}</div>
+            <p className="text-sm text-muted-foreground">Entregas realizadas hoy</p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center space-x-2">
+              <UserCircle className="h-4 w-4 text-blue-500" />
+              <CardTitle className="text-lg">Domiciliarios</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold mb-2">{deliveryPeople.filter(d => d.status === 'disponible').length}</div>
+            <p className="text-sm text-muted-foreground">Disponibles actualmente</p>
           </CardContent>
         </Card>
       </div>
       
       <Card>
         <CardHeader>
-          <CardTitle>Gestión de Entregas</CardTitle>
-          <CardDescription>
-            Administra y da seguimiento a las entregas de pedidos
-          </CardDescription>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <CardTitle>Gestión de Entregas</CardTitle>
+              <CardDescription>
+                Administra y realiza seguimiento a las entregas de pedidos
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="all">
+          <Tabs defaultValue="pending" value={currentTab} onValueChange={setCurrentTab}>
             <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0 mb-4">
               <TabsList>
-                <TabsTrigger value="all">Todas</TabsTrigger>
                 <TabsTrigger value="pending">Pendientes</TabsTrigger>
-                <TabsTrigger value="inProgress">En Proceso</TabsTrigger>
+                <TabsTrigger value="active">En Camino</TabsTrigger>
                 <TabsTrigger value="completed">Completadas</TabsTrigger>
+                <TabsTrigger value="all">Todas</TabsTrigger>
               </TabsList>
               
               <div className="flex flex-col space-y-2 md:flex-row md:space-y-0 md:space-x-2">
@@ -351,8 +301,8 @@ const Deliveries: React.FC = () => {
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="search"
-                    placeholder="Buscar entrega..."
-                    className="pl-8 md:w-[300px]"
+                    placeholder="Buscar por cliente o pedido..."
+                    className="pl-8 md:w-[250px]"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -366,371 +316,355 @@ const Deliveries: React.FC = () => {
                     </div>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="pendiente">Pendiente</SelectItem>
-                    <SelectItem value="asignado">Asignado</SelectItem>
-                    <SelectItem value="en_ruta">En Ruta</SelectItem>
+                    <SelectItem value="all">Todos los estados</SelectItem>
+                    <SelectItem value="preparacion">En Preparación</SelectItem>
+                    <SelectItem value="enviado">En Camino</SelectItem>
                     <SelectItem value="entregado">Entregado</SelectItem>
-                    <SelectItem value="cancelado">Cancelado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
             
-            <TabsContent value="all" className="m-0">
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[120px]">
-                        <Button variant="ghost" className="p-0 h-auto font-medium" onClick={() => handleSort('orderNumber')}>
-                          N° Pedido
-                          {sortField === 'orderNumber' && (
-                            <ArrowUpDown className={`ml-1 h-4 w-4 ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[110px]">Nº Pedido</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Dirección</TableHead>
+                    <TableHead>Domiciliario</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-center">Estado</TableHead>
+                    <TableHead className="text-center">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredDeliveries.length > 0 ? (
+                    filteredDeliveries.map((delivery) => (
+                      <TableRow key={delivery.id}>
+                        <TableCell className="font-medium">{delivery.orderNumber}</TableCell>
+                        <TableCell>{delivery.customer}</TableCell>
+                        <TableCell>{new Date(delivery.date).toLocaleDateString()}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{delivery.address}</TableCell>
+                        <TableCell>
+                          {delivery.deliveryPersonName || (
+                            <span className="text-muted-foreground italic">Sin asignar</span>
                           )}
-                        </Button>
-                      </TableHead>
-                      <TableHead>
-                        <Button variant="ghost" className="p-0 h-auto font-medium" onClick={() => handleSort('customer')}>
-                          Cliente
-                          {sortField === 'customer' && (
-                            <ArrowUpDown className={`ml-1 h-4 w-4 ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />
-                          )}
-                        </Button>
-                      </TableHead>
-                      <TableHead>Dirección</TableHead>
-                      <TableHead>
-                        <Button variant="ghost" className="p-0 h-auto font-medium" onClick={() => handleSort('date')}>
-                          Fecha
-                          {sortField === 'date' && (
-                            <ArrowUpDown className={`ml-1 h-4 w-4 ${sortOrder === 'desc' ? 'rotate-180' : ''}`} />
-                          )}
-                        </Button>
-                      </TableHead>
-                      <TableHead>Domiciliario</TableHead>
-                      <TableHead className="text-center">Estado</TableHead>
-                      <TableHead className="text-center">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredDeliveries.length > 0 ? (
-                      filteredDeliveries.map((delivery) => (
-                        <TableRow key={delivery.id}>
-                          <TableCell className="font-medium">{delivery.orderNumber}</TableCell>
-                          <TableCell>{delivery.customer}</TableCell>
-                          <TableCell className="max-w-[200px] truncate" title={delivery.address}>
-                            {delivery.address}
-                          </TableCell>
-                          <TableCell>{new Date(delivery.date).toLocaleDateString()}</TableCell>
-                          <TableCell>
-                            {delivery.deliveryDriver || "-"}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {getStatusBadge(delivery.status)}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex justify-center space-x-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => viewDelivery(delivery)}
-                              >
-                                Ver Detalles
-                              </Button>
-                              {delivery.status === 'pendiente' && (
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  className="bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
-                                  onClick={() => openAssignDriverDialog(delivery)}
-                                >
-                                  Asignar
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
-                          No se encontraron entregas que coincidan con la búsqueda.
                         </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="pending" className="m-0">
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[120px]">N° Pedido</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Dirección</TableHead>
-                      <TableHead>Fecha</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="text-center">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pendingDeliveries.length > 0 ? (
-                      pendingDeliveries.map((delivery) => (
-                        <TableRow key={delivery.id}>
-                          <TableCell className="font-medium">{delivery.orderNumber}</TableCell>
-                          <TableCell>{delivery.customer}</TableCell>
-                          <TableCell className="max-w-[200px] truncate" title={delivery.address}>
-                            {delivery.address}
-                          </TableCell>
-                          <TableCell>{new Date(delivery.date).toLocaleDateString()}</TableCell>
-                          <TableCell className="text-right">${delivery.total.toFixed(2)}</TableCell>
-                          <TableCell>
-                            <div className="flex justify-center space-x-2">
+                        <TableCell className="text-right">${delivery.total.toFixed(2)}</TableCell>
+                        <TableCell className="text-center">{getStatusBadge(delivery.status)}</TableCell>
+                        <TableCell>
+                          <div className="flex justify-center space-x-2">
+                            {delivery.status === 'preparacion' && (
                               <Button 
                                 variant="outline" 
                                 size="sm"
-                                onClick={() => viewDelivery(delivery)}
-                              >
-                                Ver Detalles
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                className="bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
-                                onClick={() => openAssignDriverDialog(delivery)}
+                                onClick={() => {
+                                  setCurrentOrder(delivery);
+                                  setIsAssignDeliveryDialogOpen(true);
+                                }}
                               >
                                 Asignar
                               </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
-                          No hay entregas pendientes en este momento.
+                            )}
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => viewDelivery(delivery)}
+                            >
+                              Ver Detalles
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="inProgress" className="m-0">
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
+                    ))
+                  ) : (
                     <TableRow>
-                      <TableHead className="w-[120px]">N° Pedido</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Dirección</TableHead>
-                      <TableHead>Domiciliario</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead className="text-center">Acciones</TableHead>
+                      <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
+                        No se encontraron entregas que coincidan con los filtros.
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {inProgressDeliveries.length > 0 ? (
-                      inProgressDeliveries.map((delivery) => (
-                        <TableRow key={delivery.id}>
-                          <TableCell className="font-medium">{delivery.orderNumber}</TableCell>
-                          <TableCell>{delivery.customer}</TableCell>
-                          <TableCell className="max-w-[200px] truncate" title={delivery.address}>
-                            {delivery.address}
-                          </TableCell>
-                          <TableCell>{delivery.deliveryDriver}</TableCell>
-                          <TableCell>{getStatusBadge(delivery.status)}</TableCell>
-                          <TableCell>
-                            <div className="flex justify-center">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => viewDelivery(delivery)}
-                              >
-                                Ver Detalles
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
-                          No hay entregas en proceso en este momento.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="completed" className="m-0">
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[120px]">N° Pedido</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Fecha Entrega</TableHead>
-                      <TableHead>Domiciliario</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="text-center">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {completedDeliveries.length > 0 ? (
-                      completedDeliveries.map((delivery) => (
-                        <TableRow key={delivery.id}>
-                          <TableCell className="font-medium">{delivery.orderNumber}</TableCell>
-                          <TableCell>{delivery.customer}</TableCell>
-                          <TableCell>{new Date(delivery.date).toLocaleDateString()}</TableCell>
-                          <TableCell>{delivery.deliveryDriver}</TableCell>
-                          <TableCell className="text-right">${delivery.total.toFixed(2)}</TableCell>
-                          <TableCell>
-                            <div className="flex justify-center">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => viewDelivery(delivery)}
-                              >
-                                Ver Detalles
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
-                          No hay entregas completadas en este momento.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </TabsContent>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </Tabs>
-          
-          <div className="mt-4">
-            <Pagination>
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious href="#" />
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink href="#" isActive>1</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink href="#">2</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink href="#">3</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationNext href="#" />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
         </CardContent>
       </Card>
-
-      {/* View Delivery Dialog */}
+      
+      {/* Asignar Domiciliario Dialog */}
+      <Dialog open={isAssignDeliveryDialogOpen} onOpenChange={setIsAssignDeliveryDialogOpen}>
+        <DialogContent className="max-w-md">
+          {currentOrder && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Asignar Domiciliario</DialogTitle>
+                <DialogDescription>
+                  Seleccione un domiciliario para el pedido #{currentOrder.orderNumber}
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="grid gap-4 py-4">
+                <div className="mb-4">
+                  <div className="bg-muted/30 rounded-md p-3 mb-4">
+                    <h3 className="text-sm font-medium mb-2">Detalles del Pedido</h3>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Cliente:</span>
+                        <span className="font-medium">{currentOrder.customer}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Dirección:</span>
+                        <span className="font-medium max-w-[200px] text-right">{currentOrder.address}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Productos:</span>
+                        <span className="font-medium">{currentOrder.items?.length || 0} artículos</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total:</span>
+                        <span className="font-medium">${currentOrder.total.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <Label htmlFor="delivery-person">Seleccionar Domiciliario</Label>
+                    <Select 
+                      value={selectedDeliveryPerson?.toString() || ''} 
+                      onValueChange={(val) => setSelectedDeliveryPerson(parseInt(val))}
+                    >
+                      <SelectTrigger id="delivery-person">
+                        <SelectValue placeholder="Seleccionar domiciliario" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {deliveryPeople
+                          .filter(person => person.status === 'disponible')
+                          .map(person => (
+                            <SelectItem key={person.id} value={person.id.toString()}>
+                              {person.name} ({person.rating} ★)
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    {selectedDeliveryPerson && (
+                      <div className="mt-4 p-3 bg-muted/20 rounded-md">
+                        <h4 className="text-sm font-medium mb-2">Información del Domiciliario</h4>
+                        {deliveryPeople
+                          .filter(person => person.id === selectedDeliveryPerson)
+                          .map(person => (
+                            <div key={person.id} className="space-y-2 text-sm">
+                              <div className="flex justify-between items-center">
+                                <span className="text-muted-foreground">Teléfono:</span>
+                                <span>{person.phone}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-muted-foreground">Entregas:</span>
+                                <span>{person.deliveries} completadas</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-muted-foreground">Calificación:</span>
+                                <span className="flex items-center">
+                                  {person.rating}
+                                  <span className="text-yellow-500 ml-1">★</span>
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAssignDeliveryDialogOpen(false)}>Cancelar</Button>
+                <Button onClick={assignDeliveryPerson}>Asignar</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Ver Detalle de Entrega Dialog */}
       <Dialog open={isViewDeliveryDialogOpen} onOpenChange={setIsViewDeliveryDialogOpen}>
         <DialogContent className="max-w-2xl">
-          {currentDelivery && (
+          {currentOrder && (
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center">
                   <Truck className="mr-2 h-5 w-5" />
-                  Detalles de Entrega #{currentDelivery.orderNumber}
+                  Detalle de Entrega #{currentOrder.orderNumber}
                 </DialogTitle>
                 <DialogDescription>
-                  Fecha del pedido: {new Date(currentDelivery.date).toLocaleDateString()}
+                  Pedido realizado el {new Date(currentOrder.date).toLocaleDateString()}
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="text-sm font-medium mb-1">Cliente</h3>
-                    <p className="text-sm">{currentDelivery.customer}</p>
-                    <p className="text-sm text-muted-foreground">{currentDelivery.phone}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium mb-1">Estado</h3>
-                    <div>{getStatusBadge(currentDelivery.status)}</div>
-                  </div>
-                  <div className="col-span-2">
-                    <h3 className="text-sm font-medium mb-1">Dirección de Entrega</h3>
-                    <div className="flex items-start">
-                      <MapPin className="h-4 w-4 mr-1 mt-0.5 text-muted-foreground" />
-                      <p className="text-sm">{currentDelivery.address}</p>
+              
+              <div className="grid gap-6 py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-sm font-semibold mb-2 flex items-center">
+                        <UserCircle className="h-4 w-4 mr-1" />
+                        Información del Cliente
+                      </h3>
+                      <div className="bg-muted/30 rounded-md p-3">
+                        <p className="font-medium">{currentOrder.customer}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Cliente #{currentOrder.customerId}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  {currentDelivery.deliveryDriver && (
-                    <div className="col-span-2">
-                      <h3 className="text-sm font-medium mb-1">Domiciliario</h3>
-                      <p className="text-sm">{currentDelivery.deliveryDriver}</p>
+                    
+                    <div>
+                      <h3 className="text-sm font-semibold mb-2 flex items-center">
+                        <MapPin className="h-4 w-4 mr-1" />
+                        Dirección de Entrega
+                      </h3>
+                      <div className="bg-muted/30 rounded-md p-3">
+                        <p className="text-sm">{currentOrder.address}</p>
+                      </div>
                     </div>
-                  )}
-                  <div>
-                    <h3 className="text-sm font-medium mb-1">Total del Pedido</h3>
-                    <p className="text-sm font-semibold">${currentDelivery.total.toFixed(2)}</p>
+                    
+                    {currentOrder.deliveryPersonName && (
+                      <div>
+                        <h3 className="text-sm font-semibold mb-2 flex items-center">
+                          <UserCircle className="h-4 w-4 mr-1" />
+                          Domiciliario Asignado
+                        </h3>
+                        <div className="bg-muted/30 rounded-md p-3">
+                          <p className="font-medium">{currentOrder.deliveryPersonName}</p>
+                          {deliveryPeople.filter(d => d.id === currentOrder.deliveryPersonId).map(person => (
+                            <div key={person.id} className="text-sm space-y-1 mt-2">
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Teléfono:</span>
+                                <span>{person.phone}</span>
+                              </div>
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Calificación:</span>
+                                <span className="flex items-center">
+                                  {person.rating}
+                                  <span className="text-yellow-500 ml-1">★</span>
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <h3 className="text-sm font-medium mb-1">Entrega Estimada</h3>
-                    <p className="text-sm">{new Date(currentDelivery.estimatedDelivery).toLocaleDateString()}</p>
-                  </div>
-                </div>
-                
-                <div className="mt-4">
-                  <h3 className="text-sm font-medium mb-2">Productos</h3>
-                  <div className="border rounded-md p-3">
-                    <p className="text-sm">{currentDelivery.items} productos en este pedido</p>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-sm font-semibold mb-2 flex items-center">
+                        <Package className="h-4 w-4 mr-1" />
+                        Productos
+                      </h3>
+                      <div className="bg-muted/30 rounded-md p-3">
+                        <ul className="space-y-2">
+                          {currentOrder.items?.map((item, index) => (
+                            <li key={index} className="text-sm flex justify-between">
+                              <span>{item.quantity}x {item.productName}</span>
+                              <span className="font-medium">${(item.price * item.quantity).toFixed(2)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="mt-3 pt-3 border-t flex justify-between font-medium">
+                          <span>Total:</span>
+                          <span>${currentOrder.total.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-sm font-semibold mb-2 flex items-center">
+                        <CalendarRange className="h-4 w-4 mr-1" />
+                        Estado del Pedido
+                      </h3>
+                      <div className="bg-muted/30 rounded-md p-3">
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="text-sm font-medium">Estado actual:</span>
+                          {getStatusBadge(currentOrder.status)}
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <div className="flex items-center">
+                            <div className="h-7 w-7 rounded-full bg-green-100 text-green-700 flex items-center justify-center mr-2">
+                              <CheckCircle className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">Pedido recibido</p>
+                              <p className="text-xs text-muted-foreground">{new Date(currentOrder.date).toLocaleString()}</p>
+                            </div>
+                          </div>
+                          
+                          <div className={`flex items-center ${currentOrder.status === 'pendiente' ? 'opacity-50' : ''}`}>
+                            <div className={`h-7 w-7 rounded-full mr-2 flex items-center justify-center ${currentOrder.status !== 'pendiente' ? 'bg-amber-100 text-amber-700' : 'bg-muted text-muted-foreground'}`}>
+                              <Package className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">En preparación</p>
+                              <p className="text-xs text-muted-foreground">
+                                {currentOrder.status !== 'pendiente' ? 'Completado' : 'Pendiente'}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className={`flex items-center ${currentOrder.status === 'pendiente' || currentOrder.status === 'preparacion' ? 'opacity-50' : ''}`}>
+                            <div className={`h-7 w-7 rounded-full mr-2 flex items-center justify-center ${currentOrder.status === 'enviado' || currentOrder.status === 'entregado' ? 'bg-purple-100 text-purple-700' : 'bg-muted text-muted-foreground'}`}>
+                              <Truck className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">En camino</p>
+                              <p className="text-xs text-muted-foreground">
+                                {currentOrder.status === 'enviado' || currentOrder.status === 'entregado' ? 'En proceso' : 'Pendiente'}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className={`flex items-center ${currentOrder.status !== 'entregado' ? 'opacity-50' : ''}`}>
+                            <div className={`h-7 w-7 rounded-full mr-2 flex items-center justify-center ${currentOrder.status === 'entregado' ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'}`}>
+                              <CheckCircle className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">Entregado</p>
+                              <p className="text-xs text-muted-foreground">
+                                {currentOrder.status === 'entregado' ? 'Completado' : 'Pendiente'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-              <DialogFooter className="flex flex-col sm:flex-row gap-2">
-                {currentDelivery.status === 'pendiente' && (
+              
+              <DialogFooter className="space-x-2">
+                {currentOrder.status === 'enviado' && (
                   <Button 
-                    variant="outline"
-                    className="bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200"
-                    onClick={() => openAssignDriverDialog(currentDelivery)}
+                    variant="default"
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={markAsDelivered}
                   >
-                    Asignar Domiciliario
-                  </Button>
-                )}
-                {currentDelivery.status === 'asignado' && (
-                  <Button 
-                    variant="outline" 
-                    className="bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200"
-                    onClick={() => updateDeliveryStatus('en_ruta')}
-                  >
-                    Marcar En Ruta
-                  </Button>
-                )}
-                {currentDelivery.status === 'en_ruta' && (
-                  <Button 
-                    variant="outline" 
-                    className="bg-green-100 text-green-800 border-green-200 hover:bg-green-200"
-                    onClick={() => updateDeliveryStatus('entregado')}
-                  >
+                    <CheckCircle className="mr-2 h-4 w-4" />
                     Marcar como Entregado
                   </Button>
                 )}
-                {(currentDelivery.status === 'pendiente' || currentDelivery.status === 'asignado' || currentDelivery.status === 'en_ruta') && (
+                {currentOrder.status === 'preparacion' && !currentOrder.deliveryPersonName && (
                   <Button 
-                    variant="outline" 
-                    className="bg-red-100 text-red-800 border-red-200 hover:bg-red-200"
-                    onClick={() => updateDeliveryStatus('cancelado')}
+                    variant="outline"
+                    onClick={() => {
+                      setIsViewDeliveryDialogOpen(false);
+                      setTimeout(() => {
+                        setIsAssignDeliveryDialogOpen(true);
+                      }, 100);
+                    }}
                   >
-                    Cancelar Entrega
+                    Asignar Domiciliario
                   </Button>
                 )}
                 <Button 
@@ -739,67 +673,6 @@ const Deliveries: React.FC = () => {
                 >
                   Cerrar
                 </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Assign Driver Dialog */}
-      <Dialog open={isAssignDriverDialogOpen} onOpenChange={setIsAssignDriverDialogOpen}>
-        <DialogContent>
-          {currentDelivery && (
-            <>
-              <DialogHeader>
-                <DialogTitle>Asignar Domiciliario</DialogTitle>
-                <DialogDescription>
-                  Seleccione un domiciliario para el pedido {currentDelivery.orderNumber}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Domiciliarios Disponibles</h3>
-                  <Select value={selectedDriver} onValueChange={setSelectedDriver}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccione un domiciliario" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {driversData
-                        .filter(driver => driver.available)
-                        .map(driver => (
-                          <SelectItem key={driver.id} value={driver.id.toString()}>
-                            {driver.name} - {driver.successRate}% éxito
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Detalles de la Entrega</h3>
-                  <div className="rounded-md border p-3 space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm font-medium">Cliente:</span>
-                      <span className="text-sm">{currentDelivery.customer}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm font-medium">Dirección:</span>
-                      <span className="text-sm max-w-[250px] text-right">{currentDelivery.address}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm font-medium">Teléfono:</span>
-                      <span className="text-sm">{currentDelivery.phone}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm font-medium">Productos:</span>
-                      <span className="text-sm">{currentDelivery.items} items</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAssignDriverDialogOpen(false)}>Cancelar</Button>
-                <Button onClick={handleAssignDriver}>Asignar</Button>
               </DialogFooter>
             </>
           )}

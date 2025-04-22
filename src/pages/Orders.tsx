@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -39,108 +39,15 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-
-// Mock data for orders
-const ordersData = [
-  {
-    id: 1,
-    orderNumber: "ORD-001",
-    customer: "Juan Pérez",
-    date: "2024-04-15",
-    total: 124.50,
-    status: "pendiente",
-    items: 3,
-    address: "Calle 123 #45-67, Bogotá"
-  },
-  {
-    id: 2,
-    orderNumber: "ORD-002",
-    customer: "María López",
-    date: "2024-04-14",
-    total: 78.20,
-    status: "preparacion",
-    items: 2,
-    address: "Avenida 45 #12-34, Medellín"
-  },
-  {
-    id: 3,
-    orderNumber: "ORD-003",
-    customer: "Carlos Rodríguez",
-    date: "2024-04-13",
-    total: 245.00,
-    status: "enviado",
-    items: 5,
-    address: "Carrera 67 #89-12, Cali"
-  },
-  {
-    id: 4,
-    orderNumber: "ORD-004",
-    customer: "Ana Martínez",
-    date: "2024-04-10",
-    total: 56.75,
-    status: "entregado",
-    items: 1,
-    address: "Calle 34 #56-78, Barranquilla"
-  },
-  {
-    id: 5,
-    orderNumber: "ORD-005",
-    customer: "Pedro Sánchez",
-    date: "2024-04-08",
-    total: 189.30,
-    status: "cancelado",
-    items: 4,
-    address: "Avenida 78 #90-12, Bucaramanga"
-  },
-  {
-    id: 6,
-    orderNumber: "ORD-006",
-    customer: "Sofía Gutiérrez",
-    date: "2024-04-05",
-    total: 120.00,
-    status: "entregado",
-    items: 3,
-    address: "Carrera 23 #45-67, Cartagena"
-  },
-  {
-    id: 7,
-    orderNumber: "ORD-007",
-    customer: "Luis Torres",
-    date: "2024-04-03",
-    total: 67.80,
-    status: "entregado",
-    items: 2,
-    address: "Calle 56 #78-90, Santa Marta"
-  },
-  {
-    id: 8,
-    orderNumber: "ORD-008",
-    customer: "Carmen Díaz",
-    date: "2024-04-01",
-    total: 345.25,
-    status: "enviado",
-    items: 6,
-    address: "Avenida 12 #34-56, Pereira"
-  }
-];
-
-// Mock data for products (for creating new orders)
-const productsData = [
-  { id: 1, name: "Whisky Premium", price: 50.00, stock: 120 },
-  { id: 2, name: "Aguardiente Antioqueño", price: 20.00, stock: 200 },
-  { id: 3, name: "Ron Añejo", price: 28.00, stock: 85 },
-  { id: 4, name: "Vodka Importado", price: 32.00, stock: 65 },
-  { id: 5, name: "Tequila Reposado", price: 45.00, stock: 95 },
-];
-
-// Mock data for customers (for creating new orders)
-const customersData = [
-  { id: 1, name: "Juan Pérez", email: "juan@example.com", address: "Calle 123 #45-67, Bogotá" },
-  { id: 2, name: "María López", email: "maria@example.com", address: "Avenida 45 #12-34, Medellín" },
-  { id: 3, name: "Carlos Rodríguez", email: "carlos@example.com", address: "Carrera 67 #89-12, Cali" },
-  { id: 4, name: "Ana Martínez", email: "ana@example.com", address: "Calle 34 #56-78, Barranquilla" },
-  { id: 5, name: "Pedro Sánchez", email: "pedro@example.com", address: "Avenida 78 #90-12, Bucaramanga" },
-];
+import { 
+  Customer, 
+  Order, 
+  OrderItem, 
+  getCustomers, 
+  getOrders, 
+  useOrderService 
+} from '@/services/order.service';
+import { useInventoryService } from '@/services/inventory.service';
 
 const Orders: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -148,18 +55,36 @@ const Orders: React.FC = () => {
   const [isNewOrderDialogOpen, setIsNewOrderDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [isViewOrderDialogOpen, setIsViewOrderDialogOpen] = useState(false);
-  const [currentOrder, setCurrentOrder] = useState<typeof ordersData[0] | null>(null);
+  const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const { toast } = useToast();
+  const orderService = useOrderService();
+  const inventoryService = useInventoryService();
+  
+  // Estado para los datos
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [products, setProducts] = useState<{ id: number, name: string, price: number, stock: number }[]>([]);
   
   // New order state
-  const [newOrderItems, setNewOrderItems] = useState<{
-    productId: number;
-    productName: string;
-    quantity: number;
-    price: number;
-  }[]>([]);
+  const [newOrderItems, setNewOrderItems] = useState<OrderItem[]>([]);
   
-  const filteredOrders = ordersData.filter(order => 
+  // Cargar datos iniciales
+  useEffect(() => {
+    const loadCustomers = getCustomers();
+    const loadOrders = getOrders();
+    const loadProducts = inventoryService.getInventory().map(p => ({
+      id: p.id,
+      name: p.name,
+      price: p.price,
+      stock: p.mainWarehouse + p.warehouse1 + p.warehouse2 + p.warehouse3
+    }));
+    
+    setCustomers(loadCustomers);
+    setOrders(loadOrders);
+    setProducts(loadProducts);
+  }, []);
+  
+  const filteredOrders = orders.filter(order => 
     (searchQuery === '' || 
       order.customer.toLowerCase().includes(searchQuery.toLowerCase()) || 
       order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())) &&
@@ -167,7 +92,7 @@ const Orders: React.FC = () => {
   );
 
   const addProductToOrder = (productId: number) => {
-    const product = productsData.find(p => p.id === productId);
+    const product = products.find(p => p.id === parseInt(productId.toString()));
     
     if (product) {
       setNewOrderItems([
@@ -208,35 +133,51 @@ const Orders: React.FC = () => {
       return;
     }
 
-    // Here you would normally send a request to your API
-    toast({
-      title: "Pedido creado",
-      description: `Pedido creado exitosamente para ${customersData.find(c => c.id === parseInt(selectedCustomer))?.name}`
-    });
-
-    // Reset form
-    setSelectedCustomer('');
-    setNewOrderItems([]);
-    setIsNewOrderDialogOpen(false);
+    try {
+      // Crear el pedido
+      const newOrder = orderService.createOrder({
+        customerId: parseInt(selectedCustomer),
+        items: newOrderItems
+      });
+      
+      // Actualizar la lista de pedidos
+      setOrders([newOrder, ...orders]);
+      
+      // Reset form
+      setSelectedCustomer('');
+      setNewOrderItems([]);
+      setIsNewOrderDialogOpen(false);
+    } catch (error: any) {
+      console.error(error);
+    }
   };
 
-  const viewOrder = (order: typeof ordersData[0]) => {
+  const viewOrder = (order: Order) => {
     setCurrentOrder(order);
     setIsViewOrderDialogOpen(true);
   };
 
-  const updateOrderStatus = (status: string) => {
+  const updateOrderStatus = (status: Order['status'], deliveryPersonId?: number, deliveryPersonName?: string) => {
     if (currentOrder) {
-      // Here you would normally update the order in your API
-      toast({
-        title: "Estado actualizado",
-        description: `El pedido ${currentOrder.orderNumber} ha sido actualizado a "${status}"`
-      });
-      setIsViewOrderDialogOpen(false);
+      try {
+        // Actualizar el estado del pedido
+        const updatedOrder = orderService.updateOrderStatus(
+          currentOrder.id, 
+          status,
+          deliveryPersonId,
+          deliveryPersonName
+        );
+        
+        // Actualizar la lista de pedidos
+        setOrders(orders.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+        setIsViewOrderDialogOpen(false);
+      } catch (error: any) {
+        console.error(error);
+      }
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: Order['status']) => {
     switch (status) {
       case 'pendiente':
         return <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">Pendiente</Badge>;
@@ -272,19 +213,19 @@ const Orders: React.FC = () => {
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-sm">Pendientes</span>
-                <span className="font-medium">{ordersData.filter(o => o.status === 'pendiente').length}</span>
+                <span className="font-medium">{orders.filter(o => o.status === 'pendiente').length}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm">En preparación</span>
-                <span className="font-medium">{ordersData.filter(o => o.status === 'preparacion').length}</span>
+                <span className="font-medium">{orders.filter(o => o.status === 'preparacion').length}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm">Enviados</span>
-                <span className="font-medium">{ordersData.filter(o => o.status === 'enviado').length}</span>
+                <span className="font-medium">{orders.filter(o => o.status === 'enviado').length}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm">Entregados</span>
-                <span className="font-medium">{ordersData.filter(o => o.status === 'entregado').length}</span>
+                <span className="font-medium">{orders.filter(o => o.status === 'entregado').length}</span>
               </div>
             </div>
           </CardContent>
@@ -305,17 +246,17 @@ const Orders: React.FC = () => {
               <div className="bg-card rounded-lg p-4 shadow-sm">
                 <p className="text-sm text-muted-foreground">Total Ventas</p>
                 <p className="text-2xl font-bold">
-                  ${ordersData.reduce((sum, order) => sum + order.total, 0).toFixed(2)}
+                  ${orders.reduce((sum, order) => sum + order.total, 0).toFixed(2)}
                 </p>
               </div>
               <div className="bg-card rounded-lg p-4 shadow-sm">
                 <p className="text-sm text-muted-foreground">Pedidos</p>
-                <p className="text-2xl font-bold">{ordersData.length}</p>
+                <p className="text-2xl font-bold">{orders.length}</p>
               </div>
               <div className="bg-card rounded-lg p-4 shadow-sm">
                 <p className="text-sm text-muted-foreground">Promedio</p>
                 <p className="text-2xl font-bold">
-                  ${(ordersData.reduce((sum, order) => sum + order.total, 0) / ordersData.length).toFixed(2)}
+                  ${orders.length > 0 ? (orders.reduce((sum, order) => sum + order.total, 0) / orders.length).toFixed(2) : '0.00'}
                 </p>
               </div>
             </div>
@@ -355,7 +296,7 @@ const Orders: React.FC = () => {
                           <SelectValue placeholder="Seleccionar Cliente" />
                         </SelectTrigger>
                         <SelectContent>
-                          {customersData.map(customer => (
+                          {customers.map(customer => (
                             <SelectItem key={customer.id} value={customer.id.toString()}>
                               {customer.name}
                             </SelectItem>
@@ -364,7 +305,7 @@ const Orders: React.FC = () => {
                       </Select>
                       {selectedCustomer && (
                         <p className="text-sm text-muted-foreground">
-                          {customersData.find(c => c.id === parseInt(selectedCustomer))?.address}
+                          {customers.find(c => c.id === parseInt(selectedCustomer))?.address}
                         </p>
                       )}
                     </div>
@@ -377,7 +318,7 @@ const Orders: React.FC = () => {
                             <SelectValue placeholder="Añadir Producto" />
                           </SelectTrigger>
                           <SelectContent>
-                            {productsData.map(product => (
+                            {products.map(product => (
                               <SelectItem key={product.id} value={product.id.toString()}>
                                 {product.name} - ${product.price.toFixed(2)}
                               </SelectItem>
@@ -501,7 +442,7 @@ const Orders: React.FC = () => {
                       <TableCell className="font-medium">{order.orderNumber}</TableCell>
                       <TableCell>{order.customer}</TableCell>
                       <TableCell>{new Date(order.date).toLocaleDateString()}</TableCell>
-                      <TableCell>{order.items} productos</TableCell>
+                      <TableCell>{order.items?.length || 0} productos</TableCell>
                       <TableCell className="text-right">${order.total.toFixed(2)}</TableCell>
                       <TableCell className="text-center">
                         {getStatusBadge(order.status)}
@@ -582,6 +523,12 @@ const Orders: React.FC = () => {
                     <h3 className="text-sm font-medium mb-1">Dirección de Entrega</h3>
                     <p className="text-sm">{currentOrder.address}</p>
                   </div>
+                  {currentOrder.deliveryPersonName && (
+                    <div className="col-span-2">
+                      <h3 className="text-sm font-medium mb-1">Repartidor</h3>
+                      <p className="text-sm">{currentOrder.deliveryPersonName}</p>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="mt-4">
@@ -597,19 +544,14 @@ const Orders: React.FC = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {/* Normally you would display actual line items here */}
-                        <TableRow>
-                          <TableCell>Whisky Premium</TableCell>
-                          <TableCell className="text-right">2</TableCell>
-                          <TableCell className="text-right">$50.00</TableCell>
-                          <TableCell className="text-right">$100.00</TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell>Cerveza Artesanal</TableCell>
-                          <TableCell className="text-right">6</TableCell>
-                          <TableCell className="text-right">$3.00</TableCell>
-                          <TableCell className="text-right">$18.00</TableCell>
-                        </TableRow>
+                        {currentOrder.items?.map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{item.productName}</TableCell>
+                            <TableCell className="text-right">{item.quantity}</TableCell>
+                            <TableCell className="text-right">${item.price.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">${(item.price * item.quantity).toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
                         <TableRow>
                           <TableCell colSpan={3} className="text-right font-medium">Total</TableCell>
                           <TableCell className="text-right font-medium">${currentOrder.total.toFixed(2)}</TableCell>
@@ -633,7 +575,7 @@ const Orders: React.FC = () => {
                   <Button 
                     variant="outline" 
                     className="bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200"
-                    onClick={() => updateOrderStatus('enviado')}
+                    onClick={() => updateOrderStatus('enviado', 1, 'Luis Torres')}
                   >
                     Marcar como Enviado
                   </Button>
