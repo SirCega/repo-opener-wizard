@@ -1,4 +1,3 @@
-
 import { useToast } from "@/hooks/use-toast";
 
 // Tipos para los productos e inventario
@@ -151,6 +150,11 @@ export const saveInventory = (inventory: Product[]): void => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(inventory));
 };
 
+// Función para emitir evento de cambio
+const emitInventoryChange = () => {
+  window.dispatchEvent(new StorageEvent('storage', { key: 'likistock_inventory' }));
+};
+
 // Función para agregar un nuevo producto
 export const addProduct = (product: Omit<Product, 'id'>): Product => {
   const inventory = getInventory();
@@ -170,6 +174,9 @@ export const addProduct = (product: Omit<Product, 'id'>): Product => {
   inventory.push(newProduct);
   saveInventory(inventory);
   
+  // Emitir evento de cambio
+  emitInventoryChange();
+  
   return newProduct;
 };
 
@@ -181,6 +188,8 @@ export const updateProduct = (product: Product): Product => {
   if (index !== -1) {
     inventory[index] = product;
     saveInventory(inventory);
+    // Emitir evento de cambio
+    emitInventoryChange();
     return product;
   }
   

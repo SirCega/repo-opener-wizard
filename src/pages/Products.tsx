@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -39,136 +38,38 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-
-// Mock data for products
-const productsData = [
-  {
-    id: 1,
-    sku: "WP-001",
-    name: "Whisky Premium",
-    category: "Whisky",
-    mainWarehouse: 120,
-    warehouse1: 25,
-    warehouse2: 8,
-    warehouse3: 15,
-    threshold: 10,
-    price: 50.00,
-    boxQty: 12
-  },
-  {
-    id: 2,
-    sku: "AG-001",
-    name: "Aguardiente Antioqueño",
-    category: "Aguardiente",
-    mainWarehouse: 200,
-    warehouse1: 40,
-    warehouse2: 35,
-    warehouse3: 25,
-    threshold: 20,
-    price: 20.00,
-    boxQty: 24
-  },
-  {
-    id: 3,
-    sku: "RN-001",
-    name: "Ron Añejo",
-    category: "Ron",
-    mainWarehouse: 85,
-    warehouse1: 12,
-    warehouse2: 18,
-    warehouse3: 14,
-    threshold: 15,
-    price: 28.00,
-    boxQty: 12
-  },
-  {
-    id: 4,
-    sku: "VK-001",
-    name: "Vodka Importado",
-    category: "Vodka",
-    mainWarehouse: 65,
-    warehouse1: 3,
-    warehouse2: 15,
-    warehouse3: 10,
-    threshold: 15,
-    price: 32.00,
-    boxQty: 6
-  },
-  {
-    id: 5,
-    sku: "TQ-001",
-    name: "Tequila Reposado",
-    category: "Tequila",
-    mainWarehouse: 95,
-    warehouse1: 18,
-    warehouse2: 22,
-    warehouse3: 16,
-    threshold: 20,
-    price: 45.00,
-    boxQty: 12
-  },
-  {
-    id: 6,
-    sku: "BR-001",
-    name: "Brandy Reserva",
-    category: "Brandy",
-    mainWarehouse: 60,
-    warehouse1: 7,
-    warehouse2: 12,
-    warehouse3: 9,
-    threshold: 10,
-    price: 38.00,
-    boxQty: 6
-  },
-  {
-    id: 7,
-    sku: "CR-001",
-    name: "Cerveza Artesanal",
-    category: "Cerveza",
-    mainWarehouse: 350,
-    warehouse1: 120,
-    warehouse2: 95,
-    warehouse3: 85,
-    threshold: 50,
-    price: 3.00,
-    boxQty: 24
-  },
-  {
-    id: 8,
-    sku: "GN-001",
-    name: "Gin London Dry",
-    category: "Gin",
-    mainWarehouse: 70,
-    warehouse1: 12,
-    warehouse2: 14,
-    warehouse3: 11,
-    threshold: 15,
-    price: 35.00,
-    boxQty: 12
-  }
-];
+import { Product, useInventoryService } from '@/services/inventory.service';
 
 const Products: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentCategory, setCurrentCategory] = useState('all');
   const [sortField, setSortField] = useState('name');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [isNewProductDialogOpen, setIsNewProductDialogOpen] = useState(false);
+  const [sortOrder, setSortOrder<'asc' | 'desc'>>('asc');
+  const [productsData, setProductsData] = useState<Product[]>([]); // Nuevo estado para productos
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
-  const [currentProduct, setCurrentProduct] = useState<typeof productsData[0] | null>(null);
+  const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const { toast } = useToast();
-  
-  // New product form state
-  const [newProduct, setNewProduct] = useState({
-    sku: '',
-    name: '',
-    category: '',
-    price: '',
-    boxQty: '',
-    threshold: '',
-    mainWarehouse: ''
-  });
-  
+  const inventoryService = useInventoryService();
+
+  // Cargar productos del servicio de inventario
+  useEffect(() => {
+    const loadProducts = () => {
+      const products = inventoryService.getInventory();
+      setProductsData(products);
+    };
+    loadProducts();
+    
+    // Suscribirse a cambios en el localStorage
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'likistock_inventory') {
+        loadProducts();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   const handleSort = (field: string) => {
     if (sortField === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -177,7 +78,32 @@ const Products: React.FC = () => {
       setSortOrder('asc');
     }
   };
+
+  const editProduct = (product: Product) => {
+    setCurrentProduct(product);
+    setIsEditProductDialogOpen(true);
+  };
+
+  const handleUpdateProduct = () => {
+    if (currentProduct) {
+      inventoryService.updateProduct(currentProduct);
+      setIsEditProductDialogOpen(false);
+    }
+  };
   
+  const getStockStatus = (product: Product) => {
+    const lowStock = product.warehouse1 < product.threshold || 
+                   product.warehouse2 < product.threshold || 
+                   product.warehouse3 < product.threshold;
+    
+    if (lowStock) {
+      return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">Stock Bajo</Badge>;
+    } else {
+      return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">Normal</Badge>;
+    }
+  };
+
+  // Actualizar filteredProducts para usar productsData en lugar de productsData constante
   const filteredProducts = productsData
     .filter(item => 
       (searchQuery === '' || 
@@ -199,80 +125,8 @@ const Products: React.FC = () => {
       return 0;
     });
 
-  // Get all unique categories
+  // Get all unique categories from actual data
   const categories = Array.from(new Set(productsData.map(item => item.category)));
-  
-  const handleNewProductChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNewProduct({
-      ...newProduct,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  const handleCategoryChange = (value: string) => {
-    setNewProduct({
-      ...newProduct,
-      category: value
-    });
-  };
-
-  const handleCreateProduct = () => {
-    // Validation
-    if (!newProduct.name || !newProduct.sku || !newProduct.category || !newProduct.price) {
-      toast({
-        title: "Error",
-        description: "Por favor complete todos los campos requeridos",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Here you would normally add the product to your database
-    toast({
-      title: "Producto creado",
-      description: `${newProduct.name} ha sido agregado al inventario`
-    });
-
-    // Reset form and close dialog
-    setNewProduct({
-      sku: '',
-      name: '',
-      category: '',
-      price: '',
-      boxQty: '',
-      threshold: '',
-      mainWarehouse: ''
-    });
-    setIsNewProductDialogOpen(false);
-  };
-
-  const editProduct = (product: typeof productsData[0]) => {
-    setCurrentProduct(product);
-    setIsEditProductDialogOpen(true);
-  };
-
-  const handleUpdateProduct = () => {
-    if (currentProduct) {
-      // Here you would normally update the product in your database
-      toast({
-        title: "Producto actualizado",
-        description: `${currentProduct.name} ha sido actualizado correctamente`
-      });
-      setIsEditProductDialogOpen(false);
-    }
-  };
-
-  const getStockStatus = (product: typeof productsData[0]) => {
-    const lowStock = product.warehouse1 < product.threshold || 
-                   product.warehouse2 < product.threshold || 
-                   product.warehouse3 < product.threshold;
-    
-    if (lowStock) {
-      return <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">Stock Bajo</Badge>;
-    } else {
-      return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">Normal</Badge>;
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -364,116 +218,6 @@ const Products: React.FC = () => {
               <CardDescription>
                 Administra tu inventario de productos
               </CardDescription>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <Dialog open={isNewProductDialogOpen} onOpenChange={setIsNewProductDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Nuevo Producto
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Agregar Nuevo Producto</DialogTitle>
-                    <DialogDescription>
-                      Ingrese los detalles del nuevo producto para agregarlo al inventario
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="sku">SKU *</Label>
-                        <Input 
-                          id="sku" 
-                          name="sku"
-                          value={newProduct.sku}
-                          onChange={handleNewProductChange}
-                          placeholder="Ej: WP-010"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="name">Nombre *</Label>
-                        <Input 
-                          id="name" 
-                          name="name"
-                          value={newProduct.name}
-                          onChange={handleNewProductChange}
-                          placeholder="Ej: Whisky Escocés"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="category">Categoría *</Label>
-                        <Select value={newProduct.category} onValueChange={handleCategoryChange}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Seleccione" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categories.map(category => (
-                              <SelectItem key={category} value={category}>{category}</SelectItem>
-                            ))}
-                            <SelectItem value="nueva">+ Nueva Categoría</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="price">Precio Unitario *</Label>
-                        <Input 
-                          id="price" 
-                          name="price"
-                          type="number"
-                          value={newProduct.price}
-                          onChange={handleNewProductChange}
-                          placeholder="0.00"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="boxQty">Unid. por Caja</Label>
-                        <Input 
-                          id="boxQty" 
-                          name="boxQty"
-                          type="number"
-                          value={newProduct.boxQty}
-                          onChange={handleNewProductChange}
-                          placeholder="Ej: 12"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="threshold">Umbral Mínimo</Label>
-                        <Input 
-                          id="threshold" 
-                          name="threshold"
-                          type="number"
-                          value={newProduct.threshold}
-                          onChange={handleNewProductChange}
-                          placeholder="Ej: 10"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="mainWarehouse">Stock Inicial</Label>
-                        <Input 
-                          id="mainWarehouse" 
-                          name="mainWarehouse"
-                          type="number"
-                          value={newProduct.mainWarehouse}
-                          onChange={handleNewProductChange}
-                          placeholder="Ej: 100"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsNewProductDialogOpen(false)}>Cancelar</Button>
-                    <Button onClick={handleCreateProduct}>Crear Producto</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
             </div>
           </div>
         </CardHeader>
