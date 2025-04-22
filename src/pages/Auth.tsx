@@ -132,8 +132,10 @@ const Auth = () => {
                   <p>Usuarios de demostración:</p>
                   <p className="mt-1">
                     admin@licorhub.com / admin123<br/>
-                    cliente@licorhub.com / cliente123<br/>
-                    bodeguero@licorhub.com / bodeguero123
+                    oficinista@licorhub.com / oficinista123<br/>
+                    bodeguero@licorhub.com / bodeguero123<br/>
+                    domiciliario@licorhub.com / domiciliario123<br/>
+                    cliente@licorhub.com / cliente123
                   </p>
                 </div>
               </CardContent>

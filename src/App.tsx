@@ -21,8 +21,14 @@ import Auth from "./pages/Auth";
 
 const queryClient = new QueryClient();
 
-// Protected route component
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+// Protected route component with role-based access
+const ProtectedRoute = ({ 
+  children, 
+  allowedRoles = [] 
+}: { 
+  children: React.ReactNode, 
+  allowedRoles?: string[] 
+}) => {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
@@ -31,6 +37,17 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Check if user's role is allowed
+  const isAllowed = 
+    user.role === 'admin' || // Admin puede acceder a todo
+    (user.role === 'oficinista' && !allowedRoles.includes('usuarios-management')) || // Oficinista puede acceder a todo menos usuarios
+    allowedRoles.includes(user.role) || // Si el rol está explícitamente permitido
+    allowedRoles.length === 0; // Si no hay roles especificados, se permite el acceso
+
+  if (!isAllowed) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -46,14 +63,46 @@ const AppRoutes = () => {
       <Route path="/" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
-        <Route path="productos" element={<Products />} />
-        <Route path="inventario" element={<Inventory />} />
-        <Route path="pedidos" element={<Orders />} />
-        <Route path="entregas" element={<Deliveries />} />
-        <Route path="reportes" element={<Reports />} />
-        <Route path="facturas" element={<Invoices />} />
-        <Route path="usuarios" element={<Users />} />
-        <Route path="configuracion" element={<Settings />} />
+        <Route path="productos" element={
+          <ProtectedRoute allowedRoles={['admin', 'oficinista']}>
+            <Products />
+          </ProtectedRoute>
+        } />
+        <Route path="inventario" element={
+          <ProtectedRoute allowedRoles={['admin', 'oficinista']}>
+            <Inventory />
+          </ProtectedRoute>
+        } />
+        <Route path="pedidos" element={
+          <ProtectedRoute allowedRoles={['admin', 'oficinista', 'bodeguero']}>
+            <Orders />
+          </ProtectedRoute>
+        } />
+        <Route path="entregas" element={
+          <ProtectedRoute allowedRoles={['admin', 'oficinista', 'bodeguero', 'domiciliario']}>
+            <Deliveries />
+          </ProtectedRoute>
+        } />
+        <Route path="reportes" element={
+          <ProtectedRoute allowedRoles={['admin', 'oficinista']}>
+            <Reports />
+          </ProtectedRoute>
+        } />
+        <Route path="facturas" element={
+          <ProtectedRoute allowedRoles={['admin', 'oficinista']}>
+            <Invoices />
+          </ProtectedRoute>
+        } />
+        <Route path="usuarios" element={
+          <ProtectedRoute allowedRoles={['admin', 'usuarios-management']}>
+            <Users />
+          </ProtectedRoute>
+        } />
+        <Route path="configuracion" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <Settings />
+          </ProtectedRoute>
+        } />
       </Route>
       
       {/* Catch-all route for 404 */}

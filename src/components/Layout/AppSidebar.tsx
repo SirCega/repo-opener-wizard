@@ -31,21 +31,31 @@ import { useAuth } from '@/hooks/useAuth';
 const AppSidebar: React.FC = () => {
   const { logout, user } = useAuth();
 
-  const menuItems = [
-    { title: 'Dashboard', path: '/dashboard', icon: Home },
-    { title: 'Productos', path: '/productos', icon: Package },
-    { title: 'Inventario', path: '/inventario', icon: Archive },
-    { title: 'Pedidos', path: '/pedidos', icon: ShoppingCart },
-    { title: 'Entregas', path: '/entregas', icon: Truck },
-    { title: 'Reportes', path: '/reportes', icon: BarChart3 },
-    { title: 'Facturas', path: '/facturas', icon: FileText },
+  // Definimos elementos comunes a todos los usuarios
+  const commonMenuItems = [
+    { title: 'Dashboard', path: '/dashboard', icon: Home, roles: ['admin', 'oficinista', 'bodeguero', 'domiciliario', 'cliente'] },
   ];
 
-  // Only admins can see these
-  const adminMenuItems = [
-    { title: 'Usuarios', path: '/usuarios', icon: Users },
-    { title: 'Configuración', path: '/configuracion', icon: Settings },
+  // Menú para administradores y oficinistas
+  const adminOfficinistaMenuItems = [
+    { title: 'Productos', path: '/productos', icon: Package, roles: ['admin', 'oficinista'] },
+    { title: 'Inventario', path: '/inventario', icon: Archive, roles: ['admin', 'oficinista'] },
+    { title: 'Pedidos', path: '/pedidos', icon: ShoppingCart, roles: ['admin', 'oficinista', 'bodeguero'] },
+    { title: 'Entregas', path: '/entregas', icon: Truck, roles: ['admin', 'oficinista', 'bodeguero', 'domiciliario'] },
+    { title: 'Reportes', path: '/reportes', icon: BarChart3, roles: ['admin', 'oficinista'] },
+    { title: 'Facturas', path: '/facturas', icon: FileText, roles: ['admin', 'oficinista'] },
   ];
+
+  // Solo admins pueden ver usuarios
+  const adminOnlyItems = [
+    { title: 'Usuarios', path: '/usuarios', icon: Users, roles: ['admin'] },
+    { title: 'Configuración', path: '/configuracion', icon: Settings, roles: ['admin'] },
+  ];
+
+  // Filtrar las opciones de menú según el rol del usuario
+  const filteredCommonMenu = commonMenuItems.filter(item => user && item.roles.includes(user.role));
+  const filteredAdminOfficinista = adminOfficinistaMenuItems.filter(item => user && item.roles.includes(user.role));
+  const filteredAdminOnly = adminOnlyItems.filter(item => user && item.roles.includes(user.role));
 
   return (
     <Sidebar>
@@ -62,10 +72,11 @@ const AppSidebar: React.FC = () => {
         <SidebarTrigger className="absolute right-2 top-4 text-sidebar-foreground/70 hover:text-sidebar-foreground" />
       </SidebarHeader>
       <SidebarContent>
+        {/* Menú común para todos */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {filteredCommonMenu.map((item) => (
                 <SidebarMenuItem key={item.path}>
                   <SidebarMenuButton asChild>
                     <NavLink 
@@ -85,11 +96,12 @@ const AppSidebar: React.FC = () => {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {user?.role === 'admin' && (
+        {/* Menú para admin y oficinista */}
+        {filteredAdminOfficinista.length > 0 && (
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu>
-                {adminMenuItems.map((item) => (
+                {filteredAdminOfficinista.map((item) => (
                   <SidebarMenuItem key={item.path}>
                     <SidebarMenuButton asChild>
                       <NavLink 
@@ -109,6 +121,44 @@ const AppSidebar: React.FC = () => {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
+
+        {/* Menú solo para admin */}
+        {filteredAdminOnly.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {filteredAdminOnly.map((item) => (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton asChild>
+                      <NavLink 
+                        to={item.path}
+                        className={({ isActive }) => 
+                          isActive ? "w-full flex items-center space-x-2 px-3 py-2 bg-sidebar-accent rounded-md" 
+                          : "w-full flex items-center space-x-2 px-3 py-2 hover:bg-sidebar-accent/50 rounded-md"
+                        }
+                      >
+                        <item.icon className="w-5 h-5" />
+                        <span>{item.title}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Información del usuario logueado */}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <div className="px-3 py-2 mt-2">
+              <div className="p-3 bg-sidebar-accent rounded-md">
+                <p className="text-sm font-medium text-sidebar-foreground">Usuario: {user?.name}</p>
+                <p className="text-xs text-sidebar-foreground/70">Rol: {user?.role}</p>
+              </div>
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4">
         <Button 

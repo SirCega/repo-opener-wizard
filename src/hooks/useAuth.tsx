@@ -3,11 +3,13 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 
-// Usuarios demo para login rápido
+// Usuarios demo para login rápido basados en la página de usuarios
 const DEMO_USERS = [
   { email: "admin@licorhub.com", password: "admin123", name: "Administrador", role: "admin" },
   { email: "cliente@licorhub.com", password: "cliente123", name: "Cliente Demo", role: "cliente" },
+  { email: "oficinista@licorhub.com", password: "oficinista123", name: "Oficinista Demo", role: "oficinista" },
   { email: "bodeguero@licorhub.com", password: "bodeguero123", name: "Bodeguero", role: "bodeguero" },
+  { email: "domiciliario@licorhub.com", password: "domiciliario123", name: "Domiciliario Demo", role: "domiciliario" },
 ];
 
 interface User {
@@ -21,6 +23,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
+  hasAccess: (allowedRoles: string[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -80,8 +83,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     navigate("/auth");
   };
 
+  // Función para verificar si el usuario tiene acceso según su rol
+  const hasAccess = (allowedRoles: string[]) => {
+    if (!user) return false;
+    
+    // El administrador tiene acceso a todo
+    if (user.role === 'admin') return true;
+    
+    // Oficinista tiene acceso a todo menos usuarios
+    if (user.role === 'oficinista' && !allowedRoles.includes('usuarios-management')) return true;
+    
+    // Para otros roles, verificar si está en la lista de permitidos
+    return allowedRoles.includes(user.role);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading, hasAccess }}>
       {children}
     </AuthContext.Provider>
   );
@@ -94,4 +111,3 @@ export const useAuth = () => {
   }
   return context;
 };
-
