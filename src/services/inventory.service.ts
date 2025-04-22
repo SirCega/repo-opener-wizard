@@ -31,6 +31,7 @@ export interface InventoryMovement {
   responsible: string;
   note: string;
   timestamp: string;
+  warehouse: 'mainWarehouse' | 'warehouse1' | 'warehouse2' | 'warehouse3';
 }
 
 // Almacenamiento local para simular persistencia en el cliente
@@ -262,7 +263,8 @@ export const addInventoryMovement = (
   type: 'entrada' | 'salida',
   quantity: number,
   responsible: string,
-  note: string
+  note: string,
+  warehouse: 'mainWarehouse' | 'warehouse1' | 'warehouse2' | 'warehouse3'
 ): void => {
   const movements = getInventoryMovements();
   const inventory = getInventory();
@@ -280,18 +282,19 @@ export const addInventoryMovement = (
     quantity,
     responsible,
     note,
+    warehouse,
     timestamp: new Date().toISOString()
   };
 
-  // Actualizar el inventario
+  // Actualizar el inventario en la bodega específica
   const updatedProduct = { ...product };
   if (type === 'entrada') {
-    updatedProduct.mainWarehouse += quantity;
+    updatedProduct[warehouse] += quantity;
   } else {
-    if (updatedProduct.mainWarehouse < quantity) {
-      throw new Error('Stock insuficiente');
+    if (updatedProduct[warehouse] < quantity) {
+      throw new Error('Stock insuficiente en la bodega seleccionada');
     }
-    updatedProduct.mainWarehouse -= quantity;
+    updatedProduct[warehouse] -= quantity;
   }
 
   // Guardar los cambios
@@ -391,13 +394,14 @@ export const useInventoryService = () => {
       type: 'entrada' | 'salida',
       quantity: number,
       responsible: string,
-      note: string
+      note: string,
+      warehouse: 'mainWarehouse' | 'warehouse1' | 'warehouse2' | 'warehouse3'
     ) => {
       try {
-        addInventoryMovement(productId, type, quantity, responsible, note);
+        addInventoryMovement(productId, type, quantity, responsible, note, warehouse);
         toast({
           title: "Movimiento registrado",
-          description: `Se ha registrado un ${type} de inventario.`
+          description: `Se ha registrado un ${type} de inventario en la bodega seleccionada.`
         });
       } catch (error: any) {
         toast({

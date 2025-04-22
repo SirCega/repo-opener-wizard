@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -38,10 +37,18 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [movementType, setMovementType] = useState<'entrada' | 'salida'>('entrada');
+  const [selectedWarehouse, setSelectedWarehouse] = useState<'mainWarehouse' | 'warehouse1' | 'warehouse2' | 'warehouse3'>('mainWarehouse');
   const [quantity, setQuantity] = useState<number>(1);
   const [note, setNote] = useState<string>("");
   const { addMovement, getMovements } = useInventoryService();
   const movements = getMovements();
+
+  const warehouseNames = {
+    mainWarehouse: 'Bodega Principal',
+    warehouse1: 'Bodega 1',
+    warehouse2: 'Bodega 2',
+    warehouse3: 'Bodega 3'
+  };
 
   const handleAddMovement = () => {
     if (!selectedProduct) {
@@ -52,13 +59,15 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
       parseInt(selectedProduct),
       movementType,
       quantity,
-      "Admin Principal", // Podríamos obtener esto del contexto de autenticación
-      note
+      "Admin Principal",
+      note,
+      selectedWarehouse
     );
 
     setIsDialogOpen(false);
     setSelectedProduct("");
     setMovementType('entrada');
+    setSelectedWarehouse('mainWarehouse');
     setQuantity(1);
     setNote("");
   };
@@ -81,6 +90,7 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
               <TableHead>Producto</TableHead>
               <TableHead>Tipo</TableHead>
               <TableHead className="text-right">Cantidad</TableHead>
+              <TableHead>Bodega</TableHead>
               <TableHead>Responsable</TableHead>
               <TableHead>Nota</TableHead>
             </TableRow>
@@ -108,13 +118,14 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
                     </span>
                   </TableCell>
                   <TableCell className="text-right">{movement.quantity}</TableCell>
+                  <TableCell>{warehouseNames[movement.warehouse]}</TableCell>
                   <TableCell>{movement.responsible}</TableCell>
                   <TableCell>{movement.note}</TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   No hay movimientos registrados.
                 </TableCell>
               </TableRow>
@@ -184,6 +195,26 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="warehouse">Bodega</Label>
+              <Select 
+                value={selectedWarehouse} 
+                onValueChange={(value: 'mainWarehouse' | 'warehouse1' | 'warehouse2' | 'warehouse3') => 
+                  setSelectedWarehouse(value)
+                }
+              >
+                <SelectTrigger id="warehouse">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mainWarehouse">Bodega Principal</SelectItem>
+                  <SelectItem value="warehouse1">Bodega 1</SelectItem>
+                  <SelectItem value="warehouse2">Bodega 2</SelectItem>
+                  <SelectItem value="warehouse3">Bodega 3</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
