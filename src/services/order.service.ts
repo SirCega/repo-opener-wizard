@@ -51,16 +51,21 @@ const ORDERS_STORAGE_KEY = 'likistock_orders';
 const INVOICES_STORAGE_KEY = 'likistock_invoices';
 const CUSTOMERS_STORAGE_KEY = 'likistock_customers';
 
-// Datos de ejemplo de clientes
+// Datos de ejemplo de clientes (agregamos más)
 const defaultCustomers: Customer[] = [
   { id: 1, name: "Juan Pérez", email: "juan@example.com", address: "Calle 123 #45-67, Bogotá" },
   { id: 2, name: "María López", email: "maria@example.com", address: "Avenida 45 #12-34, Medellín" },
   { id: 3, name: "Carlos Rodríguez", email: "carlos@example.com", address: "Carrera 67 #89-12, Cali" },
   { id: 4, name: "Ana Martínez", email: "ana@example.com", address: "Calle 34 #56-78, Barranquilla" },
   { id: 5, name: "Pedro Sánchez", email: "pedro@example.com", address: "Avenida 78 #90-12, Bucaramanga" },
+  { id: 6, name: "Luisa Gómez", email: "luisa@example.com", address: "Carrera 23 #23-23, Santa Marta" },
+  { id: 7, name: "Camila Torres", email: "camila@example.com", address: "Avenida 19 #20-45, Cartagena" },
+  { id: 8, name: "Santiago Ruiz", email: "santiago@example.com", address: "Calle 11 #89-45, Manizales" },
+  { id: 9, name: "Valentina Sierra", email: "valentina@example.com", address: "Carrera 99 #67-12, Ibagué" },
+  { id: 10, name: "David Ferro", email: "david@example.com", address: "Calle 8 #10-11, Pereira" }
 ];
 
-// Datos de ejemplo de pedidos
+// Datos de ejemplo de pedidos (agregamos más y variamos estados)
 const defaultOrders: Order[] = [
   {
     id: 1,
@@ -107,6 +112,114 @@ const defaultOrders: Order[] = [
     address: "Carrera 67 #89-12, Cali",
     deliveryPersonId: 1,
     deliveryPersonName: "Luis Torres",
+    warehouseSource: "warehouse2"
+  },
+  {
+    id: 4,
+    orderNumber: "ORD-004",
+    customer: "Ana Martínez",
+    customerId: 4,
+    date: "2024-04-12",
+    total: 135.00,
+    status: "entregado",
+    items: [
+      { productId: 2, productName: "Aguardiente Antioqueño", quantity: 5, price: 20.00 },
+      { productId: 3, productName: "Ron Añejo", quantity: 1, price: 28.00 }
+    ],
+    address: "Calle 34 #56-78, Barranquilla",
+    deliveryPersonId: 2,
+    deliveryPersonName: "Andrés Medina",
+    warehouseSource: "warehouse3"
+  },
+  {
+    id: 5,
+    orderNumber: "ORD-005",
+    customer: "Pedro Sánchez",
+    customerId: 5,
+    date: "2024-04-11",
+    total: 99.00,
+    status: "cancelado",
+    items: [
+      { productId: 4, productName: "Vodka Importado", quantity: 2, price: 32.00 },
+      { productId: 8, productName: "Gin London Dry", quantity: 1, price: 35.00 }
+    ],
+    address: "Avenida 78 #90-12, Bucaramanga",
+    warehouseSource: "mainWarehouse"
+  },
+  {
+    id: 6,
+    orderNumber: "ORD-006",
+    customer: "Luisa Gómez",
+    customerId: 6,
+    date: "2024-04-10",
+    total: 72.00,
+    status: "entregado",
+    items: [
+      { productId: 7, productName: "Cerveza Artesanal", quantity: 24, price: 3.00 }
+    ],
+    address: "Carrera 23 #23-23, Santa Marta",
+    deliveryPersonId: 3,
+    deliveryPersonName: "Mónica Vargas",
+    warehouseSource: "warehouse1"
+  },
+  {
+    id: 7,
+    orderNumber: "ORD-007",
+    customer: "Camila Torres",
+    customerId: 7,
+    date: "2024-04-09",
+    total: 140.00,
+    status: "preparacion",
+    items: [
+      { productId: 6, productName: "Brandy Reserva", quantity: 4, price: 38.00 }
+    ],
+    address: "Avenida 19 #20-45, Cartagena",
+    warehouseSource: "warehouse2"
+  },
+  {
+    id: 8,
+    orderNumber: "ORD-008",
+    customer: "Santiago Ruiz",
+    customerId: 8,
+    date: "2024-04-08",
+    total: 90.00,
+    status: "pendiente",
+    items: [
+      { productId: 1, productName: "Whisky Premium", quantity: 1, price: 50.00 },
+      { productId: 2, productName: "Aguardiente Antioqueño", quantity: 2, price: 20.00 }
+    ],
+    address: "Calle 11 #89-45, Manizales",
+    warehouseSource: "mainWarehouse"
+  },
+  {
+    id: 9,
+    orderNumber: "ORD-009",
+    customer: "Valentina Sierra",
+    customerId: 9,
+    date: "2024-04-07",
+    total: 70.00,
+    status: "enviado",
+    items: [
+      { productId: 3, productName: "Ron Añejo", quantity: 2, price: 28.00 },
+      { productId: 8, productName: "Gin London Dry", quantity: 1, price: 35.00 }
+    ],
+    address: "Carrera 99 #67-12, Ibagué",
+    deliveryPersonId: 4,
+    deliveryPersonName: "Carlos Cortés",
+    warehouseSource: "warehouse3"
+  },
+  {
+    id: 10,
+    orderNumber: "ORD-010",
+    customer: "David Ferro",
+    customerId: 10,
+    date: "2024-04-06",
+    total: 45.00,
+    status: "pendiente",
+    items: [
+      { productId: 5, productName: "Tequila Reposado", quantity: 1, price: 45.00 }
+    ],
+    address: "Calle 8 #10-11, Pereira",
     warehouseSource: "warehouse2"
   }
 ];
