@@ -40,6 +40,7 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
   const [selectedWarehouse, setSelectedWarehouse] = useState<'mainWarehouse' | 'warehouse1' | 'warehouse2' | 'warehouse3'>('mainWarehouse');
   const [quantity, setQuantity] = useState<number>(1);
   const [note, setNote] = useState<string>("");
+  const [selectedWarehouseFilter, setSelectedWarehouseFilter] = useState<'all' | 'mainWarehouse' | 'warehouse1' | 'warehouse2' | 'warehouse3'>('all');
   const { addMovement, getMovements } = useInventoryService();
   const movements = getMovements();
 
@@ -72,6 +73,10 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
     setNote("");
   };
 
+  const filteredMovements = movements.filter(movement => 
+    selectedWarehouseFilter === 'all' || movement.warehouse === selectedWarehouseFilter
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -80,6 +85,21 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
           <Plus className="h-4 w-4 mr-2" />
           Nuevo Movimiento
         </Button>
+      </div>
+
+      <div className="flex justify-end mb-4">
+        <Select value={selectedWarehouseFilter} onValueChange={(value: any) => setSelectedWarehouseFilter(value)}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filtrar por bodega" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las bodegas</SelectItem>
+            <SelectItem value="mainWarehouse">Bodega Principal</SelectItem>
+            <SelectItem value="warehouse1">Bodega 1</SelectItem>
+            <SelectItem value="warehouse2">Bodega 2</SelectItem>
+            <SelectItem value="warehouse3">Bodega 3</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="rounded-md border">
@@ -96,8 +116,8 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {movements.length > 0 ? (
-              movements.map((movement) => (
+            {filteredMovements.length > 0 ? (
+              filteredMovements.map((movement) => (
                 <TableRow key={movement.id}>
                   <TableCell>
                     {format(new Date(movement.timestamp), 'dd/MM/yyyy HH:mm')}
@@ -126,7 +146,7 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
             ) : (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  No hay movimientos registrados.
+                  No hay movimientos registrados para esta bodega.
                 </TableCell>
               </TableRow>
             )}
