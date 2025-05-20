@@ -252,3 +252,84 @@ export const getInventoryMovements = async (productId?: string): Promise<Invento
 
 // Export all types from the types file for backward compatibility
 export type { Product, InventoryItem, Warehouse, InventoryMovement, TransferRequest };
+
+// Helper function for MovementHistory component that's missing
+export const addMovement = async (
+  productId: string,
+  type: string,
+  quantity: number,
+  responsibleId: string,
+  warehouseId: string,
+  notes?: string
+): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('inventory_movements')
+      .insert({
+        product_id: productId,
+        warehouse_id: warehouseId,
+        quantity: type === 'entrada' ? quantity : -quantity,
+        responsible_id: responsibleId,
+        type,
+        notes
+      });
+      
+    if (error) {
+      console.error("Error adding movement:", error);
+      return false;
+    }
+    
+    // Update inventory quantity
+    const { data: inventoryItem, error: inventoryError } = await supabase
+      .from('inventory')
+      .select('id, quantity')
+      .eq('product_id', productId)
+      .eq('warehouse_id', warehouseId)
+      .single();
+    
+    if (inventoryError && inventoryError.code !== 'PGRST116') {
+      console.error("Error fetching inventory item:", inventoryError);
+      return false;
+    }
+    
+    if (inventoryItem) {
+      // Update existing inventory item
+      const newQuantity = inventoryItem.quantity + (type === 'entrada' ? quantity : -quantity);
+      const { error: updateError } = await supabase
+        .from('inventory')
+        .update({ 
+          quantity: newQuantity,
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', inventoryItem.id);
+        
+      if (updateError) {
+        console.error("Error updating inventory quantity:", updateError);
+        return false;
+      }
+    } else if (type === 'entrada') {
+      // Create new inventory item for entrada
+      const { error: createError } = await supabase
+        .from('inventory')
+        .insert({
+          product_id: productId,
+          warehouse_id: warehouseId,
+          quantity
+        });
+        
+      if (createError) {
+        console.error("Error creating inventory item:", createError);
+        return false;
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error in addMovement:", error);
+    return false;
+  }
+};
+
+// Helper functions for MovementHistory component
+export const getMovements = getInventoryMovements;
+export const getWarehouses = getAllWarehouses;

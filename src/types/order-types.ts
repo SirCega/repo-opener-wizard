@@ -3,33 +3,48 @@ import { User } from './auth-types';
 
 export interface Order {
   id: string;
-  customerId: string;
-  status: string;
-  paymentStatus: string;
+  customer_id: string;
   shipping_address: string;
   total_amount: number;
+  status: 'pendiente' | 'preparacion' | 'enviado' | 'entregado' | 'cancelado';
+  payment_status: string;
   payment_method?: string;
   notes?: string;
   created_at?: string;
   updated_at?: string;
-  customer?: User;
   items?: OrderItem[];
+  customer?: User;
+  // UI specific fields
+  orderNumber?: string;
+  date?: string;
+  address?: string;
+  total?: number;
+  deliveryPersonId?: number;
+  deliveryPersonName?: string;
+  customerId?: string;
 }
 
 export interface OrderItem {
   id: string;
   order_id: string;
   product_id: string;
-  warehouse_id: string;
   quantity: number;
   unit_price: number;
   subtotal: number;
+  warehouse_id: string;
+  product?: {
+    name: string;
+    sku: string;
+  };
+  // UI specific fields
+  productName?: string;
+  price?: number;
 }
 
 export interface Invoice {
   id: string;
-  invoice_number: string;
   order_id: string;
+  invoice_number: string;
   issue_date?: string;
   due_date: string;
   total_amount: number;
@@ -49,5 +64,8 @@ export interface Delivery {
   actual_delivery?: string;
   notes?: string;
   order?: Order;
-  delivery_person?: User;
+  delivery_person?: {
+    id: string;
+    name: string;
+  };
 }

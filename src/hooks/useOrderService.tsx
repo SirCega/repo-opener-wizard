@@ -11,7 +11,8 @@ import {
 import { 
   Order, 
   Invoice, 
-  Delivery 
+  Delivery,
+  OrderItem
 } from '@/types/order-types';
 import { User } from '@/types/auth-types';
 
@@ -101,10 +102,10 @@ export function useOrderService() {
     }
   };
 
-  const updateStatus = async (orderId: string, status: string) => {
+  const updateStatus = async (orderId: string, status: string, deliveryPersonId?: number, deliveryPersonName?: string) => {
     try {
       setLoading(true);
-      const success = await updateOrderStatus(orderId, status);
+      const success = await updateOrderStatus(orderId, status, deliveryPersonId, deliveryPersonName);
       if (success) {
         await loadOrders();
       } else {

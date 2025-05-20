@@ -31,9 +31,9 @@ import { ArrowDownIcon, ArrowUpIcon, ExternalLink, Plus } from "lucide-react";
 import { 
   Product, 
   InventoryMovement, 
-  useInventoryService, 
   Warehouse 
-} from "@/services/inventory.service";
+} from "@/types/inventory-types";
+import { addMovement, getMovements, getWarehouses } from "@/services/inventory.service";
 import { useAuth } from "@/hooks/useAuth";
 
 interface MovementHistoryProps {
@@ -52,7 +52,6 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
   const [movements, setMovements] = useState<InventoryMovement[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   
-  const { addMovement, getMovements, getWarehouses } = useInventoryService();
   const { user } = useAuth();
 
   // Cargar bodegas y movimientos
@@ -115,7 +114,22 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
 
   const filteredMovements = selectedWarehouseFilter === 'all' 
     ? movements 
-    : movements.filter(movement => movement.warehouseId === selectedWarehouseFilter);
+    : movements.filter(movement => movement.warehouse_id === selectedWarehouseFilter);
+
+  // Helper function to get product name
+  const getProductName = (movement: InventoryMovement) => {
+    return movement.product?.name || 'Unknown Product';
+  };
+
+  // Helper function to get warehouse name
+  const getWarehouseName = (movement: InventoryMovement) => {
+    return movement.warehouse?.name || 'Unknown Warehouse';
+  };
+
+  // Helper function to get responsible name
+  const getResponsibleName = (movement: InventoryMovement) => {
+    return movement.responsible?.name || 'Unknown';
+  };
 
   return (
     <div className="space-y-4">
@@ -167,9 +181,9 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
               filteredMovements.map((movement) => (
                 <TableRow key={movement.id}>
                   <TableCell>
-                    {movement.createdAt ? format(parseISO(movement.createdAt), 'dd/MM/yyyy HH:mm') : 'N/A'}
+                    {movement.created_at ? format(parseISO(movement.created_at), 'dd/MM/yyyy HH:mm') : 'N/A'}
                   </TableCell>
-                  <TableCell>{movement.productName}</TableCell>
+                  <TableCell>{getProductName(movement)}</TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center ${
                       movement.type === 'entrada' 
@@ -190,8 +204,8 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
                     </span>
                   </TableCell>
                   <TableCell className="text-right">{movement.quantity}</TableCell>
-                  <TableCell>{movement.warehouseName}</TableCell>
-                  <TableCell>{movement.responsibleName}</TableCell>
+                  <TableCell>{getWarehouseName(movement)}</TableCell>
+                  <TableCell>{getResponsibleName(movement)}</TableCell>
                   <TableCell>{movement.notes}</TableCell>
                 </TableRow>
               ))
