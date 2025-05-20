@@ -66,9 +66,12 @@ const Login: React.FC = () => {
                 {isLoading ? 'Cargando...' : 'Iniciar Sesión'}
               </Button>
               <div className="mt-4 text-center text-sm text-muted-foreground">
-                <p>Usuarios de demostración:</p>
+                <p>Usuario administrador:</p>
                 <p className="mt-1">
-                  admin@licorhub.com / admin123<br/>
+                  joancanizales08@gmail.com / sircega161004
+                </p>
+                <p className="mt-2">Otros usuarios de demostración:</p>
+                <p className="mt-1">
                   oficinista@licorhub.com / oficinista123<br/>
                   bodeguero@licorhub.com / bodeguero123<br/>
                   domiciliario@licorhub.com / domiciliario123<br/>

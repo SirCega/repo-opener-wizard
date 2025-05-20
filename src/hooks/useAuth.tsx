@@ -177,4 +177,5 @@ export const useAuth = () => {
   return context;
 };
 
-export { User } from '@/types/auth-types';
+// Corregimos el error TS1205 usando export type
+export type { User } from '@/types/auth-types';
