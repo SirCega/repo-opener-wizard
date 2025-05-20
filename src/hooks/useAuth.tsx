@@ -4,26 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
-
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  address?: string;
-}
-
-interface AuthContextType {
-  user: User | null;
-  supabaseUser: SupabaseUser | null;
-  session: Session | null;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
-  isLoading: boolean;
-  hasAccess: (allowedRoles: string[]) => boolean;
-  registerClient: (userData: { email: string, password: string, name: string, address: string }) => Promise<void>;
-  getAllUsers: () => Promise<User[]>;
-}
+import { User, AuthContextType } from '@/types/auth-types';
+import * as authService from '@/services/auth.service';
+import * as userService from '@/services/user.service';
+import * as accessControlService from '@/services/access-control.service';
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
@@ -35,7 +19,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Configuración inicial para la autenticación con Supabase
+  // Setup auth state listener
   useEffect(() => {
     // Primero establecemos el listener de cambio de autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -47,29 +31,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (currentSession?.user) {
           // Usar setTimeout para evitar bloqueo
           setTimeout(async () => {
-            try {
-              const { data: userData, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', currentSession.user.id)
-                .single();
-                
-              if (error) {
-                console.error("Error fetching user data:", error);
-                return;
-              }
-              
-              if (userData) {
-                setUser({
-                  id: userData.id,
-                  email: userData.email,
-                  name: userData.name,
-                  role: userData.role,
-                  address: userData.address
-                });
-              }
-            } catch (error) {
-              console.error("Error in auth state change:", error);
+            const userData = await userService.getUserById(currentSession.user.id);
+            if (userData) {
+              setUser(userData);
             }
           }, 0);
         } else {
@@ -79,38 +43,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     // Luego verificamos si hay una sesión existente
-    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
+    authService.getCurrentSession().then(({ session: currentSession, user: userData }) => {
       setSession(currentSession);
       setSupabaseUser(currentSession?.user ?? null);
-      
-      if (currentSession?.user) {
-        try {
-          const { data: userData, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', currentSession.user.id)
-            .single();
-            
-          if (error) {
-            console.error("Error fetching user data:", error);
-            setIsLoading(false);
-            return;
-          }
-          
-          if (userData) {
-            setUser({
-              id: userData.id,
-              email: userData.email,
-              name: userData.name,
-              role: userData.role,
-              address: userData.address
-            });
-          }
-        } catch (error) {
-          console.error("Error in initial session check:", error);
-        }
-      }
-      
+      setUser(userData);
       setIsLoading(false);
     });
 
@@ -124,43 +60,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     try {
       // Iniciar sesión en Supabase Auth
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { user: authUser } = await authService.signInWithEmail(email, password);
 
-      if (error) {
-        toast({
-          title: "Error de autenticación",
-          description: error.message,
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
+      // Obtener datos del usuario
+      const userData = await userService.getUserById(authUser.id);
+      
+      if (!userData) {
+        throw new Error("Error al obtener datos del usuario");
       }
 
-      // Obtener datos del usuario de la tabla users
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', data.user.id)
-        .single();
-
-      if (userError) {
-        toast({
-          title: "Error al obtener datos del usuario",
-          description: userError.message,
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      // Actualizar el último login
-      await supabase
-        .from('users')
-        .update({ last_login: new Date().toISOString() })
-        .eq('id', userData.id);
+      // Actualizar último login
+      await userService.updateLastLogin(userData.id);
 
       toast({
         title: "Bienvenido",
@@ -184,7 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     setIsLoading(true);
     try {
-      await supabase.auth.signOut();
+      await authService.signOut();
       setUser(null);
       setSupabaseUser(null);
       setSession(null);
@@ -211,71 +121,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const registerClient = async (userData: { email: string, password: string, name: string, address: string }) => {
     setIsLoading(true);
     try {
-      // Verificar si el usuario ya existe
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', userData.email)
-        .single();
-
-      if (existingUser) {
-        toast({
-          title: "Error de registro",
-          description: "Este correo electrónico ya está registrado.",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      // Registrar al usuario en Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
-        email: userData.email,
-        password: userData.password,
-      });
-
-      if (error) {
-        toast({
-          title: "Error de registro",
-          description: error.message,
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      if (!data.user) {
-        toast({
-          title: "Error de registro",
-          description: "Error al crear el usuario",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      // Crear el perfil del usuario
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert([{
-          id: data.user.id,
-          email: userData.email,
-          password: userData.password, // En producción, esto debería ser un hash
-          name: userData.name,
-          role: 'cliente',
-          address: userData.address
-        }]);
-
-      if (profileError) {
-        toast({
-          title: "Error de registro",
-          description: "Error al crear el perfil: " + profileError.message,
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-
+      await authService.registerClient(userData);
+      
       toast({
         title: "Registro exitoso",
         description: `Bienvenido, ${userData.name}`,
@@ -297,54 +144,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Función para obtener todos los usuarios (solo admin)
   const getAllUsers = async (): Promise<User[]> => {
-    if (!user || user.role !== 'admin') {
-      return [];
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*');
-
-      if (error) {
-        console.error("Error fetching users:", error);
-        return [];
-      }
-
-      return data.map(user => ({
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        address: user.address
-      })) || [];
-    } catch (error) {
-      console.error("Error in getAllUsers:", error);
-      return [];
-    }
+    return await userService.getAllUsers(user?.role);
   };
 
   // Función para verificar si el usuario tiene acceso según su rol
   const hasAccess = (allowedRoles: string[]) => {
-    if (!user) return false;
-    
-    // El administrador tiene acceso a todo
-    if (user.role === 'admin') return true;
-    
-    // El oficinista puede acceder a todo menos a la gestión de usuarios
-    if (user.role === 'oficinista' && !allowedRoles.includes('admin')) return true;
-    
-    // El bodeguero solo puede acceder a pedidos y entregas
-    if (user.role === 'bodeguero' && (allowedRoles.includes('pedidos') || allowedRoles.includes('entregas'))) return true;
-    
-    // El domiciliario solo puede acceder a entregas asignadas
-    if (user.role === 'domiciliario' && allowedRoles.includes('entregas')) return true;
-    
-    // El cliente puede acceder a sus propias vistas
-    if (user.role === 'cliente' && allowedRoles.includes('cliente')) return true;
-    
-    // Para roles específicos, verificar si está en la lista de permitidos
-    return allowedRoles.includes(user.role);
+    return accessControlService.hasAccess(user, allowedRoles);
   };
 
   return (
@@ -371,3 +176,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export { User } from '@/types/auth-types';
