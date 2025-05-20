@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -25,9 +26,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { format } from "date-fns";
-import { ArrowDownIcon, ArrowUpIcon, Plus } from "lucide-react";
-import { Product, InventoryMovement, useInventoryService } from "@/services/inventory.service";
+import { format, parseISO } from "date-fns";
+import { ArrowDownIcon, ArrowUpIcon, ExternalLink, Plus } from "lucide-react";
+import { 
+  Product, 
+  InventoryMovement, 
+  useInventoryService, 
+  Warehouse 
+} from "@/services/inventory.service";
+import { useAuth } from "@/hooks/useAuth";
 
 interface MovementHistoryProps {
   products: Product[];
@@ -37,45 +44,78 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [movementType, setMovementType] = useState<'entrada' | 'salida'>('entrada');
-  const [selectedWarehouse, setSelectedWarehouse] = useState<'mainWarehouse' | 'warehouse1' | 'warehouse2' | 'warehouse3'>('mainWarehouse');
+  const [selectedWarehouse, setSelectedWarehouse] = useState<string>("");
   const [quantity, setQuantity] = useState<number>(1);
   const [note, setNote] = useState<string>("");
-  const [selectedWarehouseFilter, setSelectedWarehouseFilter] = useState<'all' | 'mainWarehouse' | 'warehouse1' | 'warehouse2' | 'warehouse3'>('all');
-  const { addMovement, getMovements } = useInventoryService();
-  const movements = getMovements();
+  const [selectedWarehouseFilter, setSelectedWarehouseFilter] = useState<string>("all");
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [movements, setMovements] = useState<InventoryMovement[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const { addMovement, getMovements, getWarehouses } = useInventoryService();
+  const { user } = useAuth();
 
-  const warehouseNames = {
-    mainWarehouse: 'Bodega Principal',
-    warehouse1: 'Bodega 1',
-    warehouse2: 'Bodega 2',
-    warehouse3: 'Bodega 3'
-  };
+  // Cargar bodegas y movimientos
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        const warehousesData = await getWarehouses();
+        setWarehouses(warehousesData);
+        
+        // Establecer la primera bodega como predeterminada
+        if (warehousesData.length > 0 && !selectedWarehouse) {
+          setSelectedWarehouse(warehousesData[0].id);
+        }
+        
+        const movementsData = await getMovements();
+        setMovements(movementsData);
+      } catch (error) {
+        console.error("Error cargando datos:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [getMovements, getWarehouses]);
 
-  const handleAddMovement = () => {
-    if (!selectedProduct) {
+  const handleAddMovement = async () => {
+    if (!selectedProduct || !selectedWarehouse || !user) {
       return;
     }
 
-    addMovement(
-      parseInt(selectedProduct),
-      movementType,
-      quantity,
-      "Admin Principal",
-      note,
-      selectedWarehouse
-    );
+    setIsLoading(true);
+    try {
+      await addMovement(
+        selectedProduct,
+        movementType,
+        quantity,
+        user.id,
+        selectedWarehouse,
+        note
+      );
 
-    setIsDialogOpen(false);
-    setSelectedProduct("");
-    setMovementType('entrada');
-    setSelectedWarehouse('mainWarehouse');
-    setQuantity(1);
-    setNote("");
+      // Recargar movimientos
+      const updatedMovements = await getMovements();
+      setMovements(updatedMovements);
+      
+      // Cerrar diálogo y resetear formulario
+      setIsDialogOpen(false);
+      setSelectedProduct("");
+      setMovementType('entrada');
+      setQuantity(1);
+      setNote("");
+    } catch (error) {
+      console.error("Error al agregar movimiento:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const filteredMovements = movements.filter(movement => 
-    selectedWarehouseFilter === 'all' || movement.warehouse === selectedWarehouseFilter
-  );
+  const filteredMovements = selectedWarehouseFilter === 'all' 
+    ? movements 
+    : movements.filter(movement => movement.warehouseId === selectedWarehouseFilter);
 
   return (
     <div className="space-y-4">
@@ -88,16 +128,17 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
       </div>
 
       <div className="flex justify-end mb-4">
-        <Select value={selectedWarehouseFilter} onValueChange={(value: any) => setSelectedWarehouseFilter(value)}>
-          <SelectTrigger className="w-[180px]">
+        <Select value={selectedWarehouseFilter} onValueChange={(value) => setSelectedWarehouseFilter(value)}>
+          <SelectTrigger className="w-[220px]">
             <SelectValue placeholder="Filtrar por bodega" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas las bodegas</SelectItem>
-            <SelectItem value="mainWarehouse">Bodega Principal</SelectItem>
-            <SelectItem value="warehouse1">Bodega 1</SelectItem>
-            <SelectItem value="warehouse2">Bodega 2</SelectItem>
-            <SelectItem value="warehouse3">Bodega 3</SelectItem>
+            {warehouses.map((warehouse) => (
+              <SelectItem key={warehouse.id} value={warehouse.id}>
+                {warehouse.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -116,31 +157,42 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredMovements.length > 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-10">
+                  Cargando movimientos...
+                </TableCell>
+              </TableRow>
+            ) : filteredMovements.length > 0 ? (
               filteredMovements.map((movement) => (
                 <TableRow key={movement.id}>
                   <TableCell>
-                    {format(new Date(movement.timestamp), 'dd/MM/yyyy HH:mm')}
+                    {movement.createdAt ? format(parseISO(movement.createdAt), 'dd/MM/yyyy HH:mm') : 'N/A'}
                   </TableCell>
                   <TableCell>{movement.productName}</TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center ${
                       movement.type === 'entrada' 
                         ? 'text-green-600' 
-                        : 'text-amber-600'
+                        : movement.type === 'salida'
+                        ? 'text-amber-600'
+                        : 'text-blue-600'
                     }`}>
                       {movement.type === 'entrada' ? (
                         <ArrowUpIcon className="h-4 w-4 mr-1" />
-                      ) : (
+                      ) : movement.type === 'salida' ? (
                         <ArrowDownIcon className="h-4 w-4 mr-1" />
+                      ) : (
+                        <ExternalLink className="h-4 w-4 mr-1" />
                       )}
-                      {movement.type === 'entrada' ? 'Entrada' : 'Salida'}
+                      {movement.type === 'entrada' ? 'Entrada' : 
+                       movement.type === 'salida' ? 'Salida' : 'Transferencia'}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">{movement.quantity}</TableCell>
-                  <TableCell>{warehouseNames[movement.warehouse]}</TableCell>
-                  <TableCell>{movement.responsible}</TableCell>
-                  <TableCell>{movement.note}</TableCell>
+                  <TableCell>{movement.warehouseName}</TableCell>
+                  <TableCell>{movement.responsibleName}</TableCell>
+                  <TableCell>{movement.notes}</TableCell>
                 </TableRow>
               ))
             ) : (
@@ -172,7 +224,7 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
                 </SelectTrigger>
                 <SelectContent>
                   {products.map((product) => (
-                    <SelectItem key={product.id} value={product.id.toString()}>
+                    <SelectItem key={product.id} value={product.id}>
                       {product.name}
                     </SelectItem>
                   ))}
@@ -221,18 +273,17 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
               <Label htmlFor="warehouse">Bodega</Label>
               <Select 
                 value={selectedWarehouse} 
-                onValueChange={(value: 'mainWarehouse' | 'warehouse1' | 'warehouse2' | 'warehouse3') => 
-                  setSelectedWarehouse(value)
-                }
+                onValueChange={(value) => setSelectedWarehouse(value)}
               >
                 <SelectTrigger id="warehouse">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="mainWarehouse">Bodega Principal</SelectItem>
-                  <SelectItem value="warehouse1">Bodega 1</SelectItem>
-                  <SelectItem value="warehouse2">Bodega 2</SelectItem>
-                  <SelectItem value="warehouse3">Bodega 3</SelectItem>
+                  {warehouses.map((warehouse) => (
+                    <SelectItem key={warehouse.id} value={warehouse.id}>
+                      {warehouse.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -242,8 +293,8 @@ export const MovementHistory: React.FC<MovementHistoryProps> = ({ products }) =>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleAddMovement}>
-              Registrar Movimiento
+            <Button onClick={handleAddMovement} disabled={isLoading}>
+              {isLoading ? 'Procesando...' : 'Registrar Movimiento'}
             </Button>
           </DialogFooter>
         </DialogContent>
