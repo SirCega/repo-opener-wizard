@@ -23,7 +23,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Primero establecemos el listener de cambio de autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
+      (event, currentSession) => {
+        console.log("Auth state changed:", event, currentSession?.user?.id);
         setSession(currentSession);
         setSupabaseUser(currentSession?.user ?? null);
         
@@ -31,9 +32,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (currentSession?.user) {
           // Usar setTimeout para evitar bloqueo
           setTimeout(async () => {
-            const userData = await userService.getUserById(currentSession.user.id);
-            if (userData) {
-              setUser(userData);
+            try {
+              const userData = await userService.getUserById(currentSession.user.id);
+              if (userData) {
+                setUser(userData);
+              }
+            } catch (error) {
+              console.error("Error fetching user data in auth change:", error);
             }
           }, 0);
         } else {
@@ -43,12 +48,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
 
     // Luego verificamos si hay una sesión existente
-    authService.getCurrentSession().then(({ session: currentSession, user: userData }) => {
-      setSession(currentSession);
-      setSupabaseUser(currentSession?.user ?? null);
-      setUser(userData);
-      setIsLoading(false);
-    });
+    const checkExistingSession = async () => {
+      try {
+        const { session: currentSession, user: userData } = await authService.getCurrentSession();
+        setSession(currentSession);
+        setSupabaseUser(currentSession?.user ?? null);
+        setUser(userData);
+      } catch (error) {
+        console.error("Error checking existing session:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkExistingSession();
 
     return () => {
       subscription.unsubscribe();
@@ -59,15 +72,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
+      console.log("Iniciando sesión con:", email);
       // Iniciar sesión en Supabase Auth
       const { user: authUser } = await authService.signInWithEmail(email, password);
+      
+      console.log("Autenticación exitosa, usuario:", authUser?.id);
 
       // Obtener datos del usuario
       const userData = await userService.getUserById(authUser.id);
       
       if (!userData) {
+        console.error("No se pudo obtener datos del usuario");
         throw new Error("Error al obtener datos del usuario");
       }
+
+      console.log("Datos de usuario obtenidos:", userData);
 
       // Actualizar último login
       await userService.updateLastLogin(userData.id);
@@ -80,9 +99,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       navigate("/dashboard");
     } catch (error: any) {
       console.error("Login error:", error);
+      let errorMessage = "Error de autenticación";
+      
+      if (error.message.includes("Invalid login credentials")) {
+        errorMessage = "Credenciales inválidas. Verifica tu correo y contraseña.";
+      } else if (error.message.includes("Email not confirmed")) {
+        errorMessage = "Correo electrónico no confirmado. Revisa tu bandeja de entrada.";
+      }
+      
       toast({
         title: "Error de autenticación",
-        description: error.message || "Error desconocido",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -121,6 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const registerClient = async (userData: { email: string, password: string, name: string, address: string }) => {
     setIsLoading(true);
     try {
+      console.log("Registrando nuevo cliente:", userData.email);
       await authService.registerClient(userData);
       
       toast({
@@ -128,13 +156,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         description: `Bienvenido, ${userData.name}`,
       });
 
-      // El usuario ya estará autenticado por el signUp
-      navigate("/dashboard");
+      // Iniciamos sesión después del registro
+      await login(userData.email, userData.password);
     } catch (error: any) {
       console.error("Registration error:", error);
+      
+      let errorMessage = "Error de registro";
+      if (error.message.includes("User already registered")) {
+        errorMessage = "Este correo electrónico ya está registrado.";
+      }
+      
       toast({
         title: "Error de registro",
-        description: error.message || "Error desconocido",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

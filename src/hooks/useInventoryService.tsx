@@ -1,10 +1,28 @@
 
 import { useState, useEffect } from 'react';
-import * as inventoryService from '@/services/inventory.service';
-import { Product, Warehouse, Movement, TransferRequest } from '@/types/inventory-types';
+import { 
+  getProducts,
+  getInventory,
+  getWarehouses,
+  getMovements,
+  addProduct,
+  updateProduct,
+  deleteProduct,
+  addMovement,
+  addInventory,
+  updateInventory
+} from '@/services/inventory.service';
+import { 
+  Product,
+  InventoryItem,
+  Warehouse,
+  Movement,
+  TransferRequest
+} from '@/types/inventory-types';
 
 export function useInventoryService() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -12,6 +30,7 @@ export function useInventoryService() {
 
   useEffect(() => {
     loadProducts();
+    loadInventory();
     loadWarehouses();
     loadMovements();
   }, []);
@@ -19,7 +38,7 @@ export function useInventoryService() {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const data = await inventoryService.getProducts();
+      const data = await getProducts();
       setProducts(data);
       setError(null);
     } catch (err) {
@@ -30,10 +49,24 @@ export function useInventoryService() {
     }
   };
 
+  const loadInventory = async () => {
+    try {
+      setLoading(true);
+      const data = await getInventory();
+      setInventory(data);
+      setError(null);
+    } catch (err) {
+      setError('Error loading inventory');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const loadWarehouses = async () => {
     try {
       setLoading(true);
-      const data = await inventoryService.getWarehouses();
+      const data = await getWarehouses();
       setWarehouses(data);
       setError(null);
     } catch (err) {
@@ -47,7 +80,7 @@ export function useInventoryService() {
   const loadMovements = async () => {
     try {
       setLoading(true);
-      const data = await inventoryService.getMovements();
+      const data = await getMovements();
       setMovements(data);
       setError(null);
     } catch (err) {
@@ -58,12 +91,12 @@ export function useInventoryService() {
     }
   };
 
-  const addProduct = async (product: Omit<Product, "id">) => {
+  // Product Operations
+  const handleAddProduct = async (productData: Omit<Product, 'id'>) => {
     try {
       setLoading(true);
-      await inventoryService.addProduct(product);
+      await addProduct(productData);
       await loadProducts();
-      setError(null);
       return true;
     } catch (err) {
       setError('Error adding product');
@@ -74,13 +107,42 @@ export function useInventoryService() {
     }
   };
 
-  const addMovement = async (movement: Omit<Movement, "id" | "created_at">) => {
+  const handleUpdateProduct = async (id: string, productData: Partial<Product>) => {
     try {
       setLoading(true);
-      await inventoryService.addMovement(movement);
-      await loadMovements();
-      await loadProducts(); // Reload products as quantities may have changed
-      setError(null);
+      await updateProduct(id, productData);
+      await loadProducts();
+      return true;
+    } catch (err) {
+      setError('Error updating product');
+      console.error(err);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      setLoading(true);
+      await deleteProduct(id);
+      await loadProducts();
+      return true;
+    } catch (err) {
+      setError('Error deleting product');
+      console.error(err);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Movement Operations
+  const handleAddMovement = async (movementData: Omit<Movement, 'id'>) => {
+    try {
+      setLoading(true);
+      await addMovement(movementData);
+      await Promise.all([loadMovements(), loadInventory()]);
       return true;
     } catch (err) {
       setError('Error adding movement');
@@ -91,16 +153,30 @@ export function useInventoryService() {
     }
   };
 
-  const transferProducts = async (transfer: TransferRequest) => {
+  // Inventory Operations
+  const handleUpdateInventory = async (id: string, inventoryData: Partial<InventoryItem>) => {
     try {
       setLoading(true);
-      await inventoryService.transferProducts(transfer);
-      await loadProducts(); // Reload products after transfer
-      await loadMovements(); // Reload movements to show the transfer
-      setError(null);
+      await updateInventory(id, inventoryData);
+      await loadInventory();
       return true;
     } catch (err) {
-      setError('Error transferring products');
+      setError('Error updating inventory');
+      console.error(err);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddInventory = async (inventoryData: Omit<InventoryItem, 'id'>) => {
+    try {
+      setLoading(true);
+      await addInventory(inventoryData);
+      await loadInventory();
+      return true;
+    } catch (err) {
+      setError('Error adding inventory');
       console.error(err);
       return false;
     } finally {
@@ -110,15 +186,22 @@ export function useInventoryService() {
 
   return {
     products,
+    inventory,
     warehouses,
     movements,
     loading,
     error,
     loadProducts,
+    loadInventory,
     loadWarehouses,
     loadMovements,
-    addProduct,
-    addMovement,
-    transferProducts
+    addProduct: handleAddProduct,
+    updateProduct: handleUpdateProduct,
+    deleteProduct: handleDeleteProduct,
+    addMovement: handleAddMovement,
+    updateInventory: handleUpdateInventory,
+    addInventory: handleAddInventory
   };
 }
+
+export type { Product, InventoryItem, Warehouse, Movement, TransferRequest } from '@/types/inventory-types';

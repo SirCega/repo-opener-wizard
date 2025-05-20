@@ -82,6 +82,9 @@ export interface InventoryItem {
   warehouse?: Warehouse;
 }
 
-export interface ProductWithStock extends Product {
+// Alias Movement as InventoryMovement for compatibility
+export type InventoryMovement = Movement;
+
+export interface ProductWithStock extends Omit<Product, 'stock'> {
   stock: number;
 }

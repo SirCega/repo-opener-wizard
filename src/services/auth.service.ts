@@ -39,21 +39,17 @@ export const registerClient = async (userData: {
   name: string, 
   address: string 
 }) => {
-  // Check if email already exists
-  const { data: existingUser } = await supabase
-    .from('users')
-    .select('id')
-    .eq('email', userData.email)
-    .single();
-
-  if (existingUser) {
-    throw new Error("Este correo electrónico ya está registrado.");
-  }
-
   // Register user in Auth
   const { data, error } = await supabase.auth.signUp({
     email: userData.email,
     password: userData.password,
+    options: {
+      data: {
+        name: userData.name,
+        role: 'cliente',
+        address: userData.address
+      }
+    }
   });
 
   if (error) {
@@ -64,19 +60,19 @@ export const registerClient = async (userData: {
     throw new Error("Error al crear el usuario");
   }
 
-  // Create user profile
+  // Create user profile (without storing the password)
   const { error: profileError } = await supabase
     .from('users')
     .insert([{
       id: data.user.id,
       email: userData.email,
-      password: userData.password,
       name: userData.name,
       role: 'cliente',
       address: userData.address
     }]);
 
   if (profileError) {
+    console.error("Error al crear el perfil:", profileError);
     throw new Error(`Error al crear el perfil: ${profileError.message}`);
   }
 
@@ -93,10 +89,17 @@ export const getCurrentSession = async () => {
     return { session: null, user: null };
   }
   
-  const userData = await getUserById(data.session.user.id);
-  
-  return {
-    session: data.session,
-    user: userData
-  };
+  try {
+    const userData = await getUserById(data.session.user.id);
+    return {
+      session: data.session,
+      user: userData
+    };
+  } catch (error) {
+    console.error("Error fetching user data:", error);
+    return {
+      session: data.session,
+      user: null
+    };
+  }
 };
