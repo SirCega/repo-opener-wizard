@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { Order, Invoice, Delivery } from '@/types/order-types';
+import { Order, Invoice, Delivery, OrderItem } from '@/types/order-types';
+import { User } from '@/types/auth-types';
 
 /**
  * Obtener todos los pedidos
@@ -9,7 +10,7 @@ export const getAllOrders = async (): Promise<Order[]> => {
   try {
     const { data, error } = await supabase
       .from('orders')
-      .select('*, customer:customer_id(id, name, email, address)');
+      .select('*, customer:customer_id(id, name, email, address, role)');
       
     if (error) {
       console.error("Error fetching orders:", error);
@@ -36,6 +37,11 @@ export const getAllOrders = async (): Promise<Order[]> => {
 };
 
 /**
+ * Alias of getAllOrders for backward compatibility
+ */
+export const getOrders = getAllOrders;
+
+/**
  * Obtener todas las facturas
  */
 export const getAllInvoices = async (): Promise<Invoice[]> => {
@@ -49,12 +55,35 @@ export const getAllInvoices = async (): Promise<Invoice[]> => {
       return [];
     }
     
-    return data || [];
+    return data.map(invoice => {
+      const order = invoice.order ? {
+        id: invoice.order.id,
+        customerId: invoice.order.customer_id,
+        status: invoice.order.status,
+        paymentStatus: invoice.order.payment_status,
+        shipping_address: invoice.order.shipping_address,
+        total_amount: invoice.order.total_amount,
+        payment_method: invoice.order.payment_method,
+        notes: invoice.order.notes,
+        created_at: invoice.order.created_at,
+        updated_at: invoice.order.updated_at
+      } : undefined;
+
+      return {
+        ...invoice,
+        order
+      };
+    }) || [];
   } catch (error) {
     console.error("Error in getAllInvoices:", error);
     return [];
   }
 };
+
+/**
+ * Alias of getAllInvoices for backward compatibility
+ */
+export const getInvoices = getAllInvoices;
 
 /**
  * Obtener todas las entregas
@@ -70,7 +99,25 @@ export const getAllDeliveries = async (): Promise<Delivery[]> => {
       return [];
     }
     
-    return data || [];
+    return data.map(delivery => {
+      const order = delivery.order ? {
+        id: delivery.order.id,
+        customerId: delivery.order.customer_id,
+        status: delivery.order.status,
+        paymentStatus: delivery.order.payment_status,
+        shipping_address: delivery.order.shipping_address,
+        total_amount: delivery.order.total_amount,
+        payment_method: delivery.order.payment_method,
+        notes: delivery.order.notes,
+        created_at: delivery.order.created_at,
+        updated_at: delivery.order.updated_at
+      } : undefined;
+
+      return {
+        ...delivery,
+        order
+      };
+    }) || [];
   } catch (error) {
     console.error("Error in getAllDeliveries:", error);
     return [];
@@ -84,7 +131,7 @@ export const getOrderById = async (orderId: string): Promise<Order | null> => {
   try {
     const { data, error } = await supabase
       .from('orders')
-      .select('*, customer:customer_id(id, name, email, address), items:order_items(*)')
+      .select('*, customer:customer_id(id, name, email, address, role), items:order_items(*)')
       .eq('id', orderId)
       .single();
       
@@ -132,5 +179,28 @@ export const updateOrderStatus = async (orderId: string, status: string): Promis
   } catch (error) {
     console.error("Error in updateOrderStatus:", error);
     return false;
+  }
+};
+
+// Export all types from the types file for backward compatibility
+export type { Order, OrderItem, Invoice, Delivery };
+
+// Mock functions for development until proper implementation
+export const getCustomers = async (): Promise<User[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('role', 'cliente');
+      
+    if (error) {
+      console.error("Error fetching customers:", error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error("Error in getCustomers:", error);
+    return [];
   }
 };

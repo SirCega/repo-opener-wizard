@@ -47,4 +47,9 @@ export interface InventoryMovement {
   responsible_id: string;
   notes?: string;
   created_at?: string;
+  source?: Warehouse;
+  destination?: Warehouse;
+  warehouse?: Warehouse;
+  product?: Product;
+  responsible?: { name: string };
 }

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart3, Package, ShoppingCart, TrendingUp, Users, Truck, AlertTriangle, Calendar, FileText } from 'lucide-react';
@@ -16,8 +15,8 @@ import {
   Bar,
   Legend
 } from 'recharts';
-import { getOrders, getInvoices } from '@/services/order.service';
-import { getInventory } from '@/services/inventory.service';
+import { getAllOrders, getAllInvoices } from '@/services/order.service';
+import { getAllInventory } from '@/services/inventory.service';
 
 // Mock data for charts
 const salesData = [
@@ -52,14 +51,20 @@ const Dashboard: React.FC = () => {
   
   // Fetch data on component mount
   useEffect(() => {
-    const fetchData = () => {
-      const ordersData = getOrders();
-      const invoicesData = getInvoices();
-      const inventoryData = getInventory();
-      
-      setOrders(ordersData);
-      setInvoices(invoicesData);
-      setInventory(inventoryData);
+    const fetchData = async () => {
+      try {
+        const [ordersData, invoicesData, inventoryData] = await Promise.all([
+          getAllOrders(),
+          getAllInvoices(),
+          getAllInventory()
+        ]);
+        
+        setOrders(ordersData || []);
+        setInvoices(invoicesData || []);
+        setInventory(inventoryData || []);
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      }
     };
     
     fetchData();

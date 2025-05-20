@@ -24,6 +24,11 @@ export const getAllInventory = async (): Promise<InventoryItem[]> => {
 };
 
 /**
+ * Alias of getAllInventory for backward compatibility
+ */
+export const getInventory = getAllInventory;
+
+/**
  * Obtener todos los almacenes
  */
 export const getAllWarehouses = async (): Promise<Warehouse[]> => {
@@ -244,3 +249,6 @@ export const getInventoryMovements = async (productId?: string): Promise<Invento
     return [];
   }
 };
+
+// Export all types from the types file for backward compatibility
+export type { Product, InventoryItem, Warehouse, InventoryMovement, TransferRequest };
