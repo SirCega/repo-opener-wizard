@@ -1,127 +1,233 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { addCustomer } from '@/services/order.service';
-
-// Usuarios demo para login rápido
-const DEMO_USERS = [
-  { email: "admin@licorhub.com", password: "admin123", name: "Administrador", role: "admin" },
-  { email: "cliente@licorhub.com", password: "cliente123", name: "Cliente", role: "cliente", address: "Calle 123 #45-67, Bogotá" },
-  { email: "oficinista@licorhub.com", password: "oficinista123", name: "Oficinista", role: "oficinista" },
-  { email: "bodeguero@licorhub.com", password: "bodeguero123", name: "Bodeguero", role: "bodeguero" },
-  { email: "domiciliario@licorhub.com", password: "domiciliario123", name: "Domiciliario", role: "domiciliario" },
-];
-
-// Clave para usuarios registrados en localStorage
-const REGISTERED_USERS_KEY = "registered_users";
+import { supabase } from '@/integrations/supabase/client';
+import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 export interface User {
+  id: string;
   email: string;
   name: string;
   role: string;
   address?: string;
-  id?: number; // ID para los clientes
 }
 
 interface AuthContextType {
   user: User | null;
+  supabaseUser: SupabaseUser | null;
+  session: Session | null;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isLoading: boolean;
   hasAccess: (allowedRoles: string[]) => boolean;
   registerClient: (userData: { email: string, password: string, name: string, address: string }) => Promise<void>;
-  getAllUsers: () => any[]; // Nueva función para obtener todos los usuarios
+  getAllUsers: () => Promise<any[]>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Cargar usuario desde localStorage al iniciar
+  // Configuración inicial para la autenticación con Supabase
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
-  }, []);
-
-  // Cargar usuarios registrados desde localStorage
-  const getRegisteredUsers = () => {
-    const storedUsers = localStorage.getItem(REGISTERED_USERS_KEY);
-    return storedUsers ? JSON.parse(storedUsers) : [];
-  };
-
-  // Guardar usuarios registrados en localStorage
-  const saveRegisteredUsers = (users: any[]) => {
-    localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(users));
-  };
-  
-  // Nueva función para obtener todos los usuarios (demo + registrados)
-  const getAllUsers = () => {
-    const registeredUsers = getRegisteredUsers();
-    return [...DEMO_USERS, ...registeredUsers];
-  };
-
-  const login = async (email: string, password: string) => {
-    setIsLoading(true);
-
-    // Combinar usuarios demo con usuarios registrados
-    const allUsers = getAllUsers();
-    console.log("Todos los usuarios disponibles:", allUsers);
-
-    // Buscar el usuario
-    const matched = allUsers.find(
-      (u) => u.email === email && u.password === password
+    // Primero establecemos el listener de cambio de autenticación
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, currentSession) => {
+        setSession(currentSession);
+        setSupabaseUser(currentSession?.user ?? null);
+        
+        // Si hay un usuario autenticado, obtener su información de perfil
+        if (currentSession?.user) {
+          // Usar setTimeout para evitar bloqueo
+          setTimeout(async () => {
+            try {
+              const { data: userData, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', currentSession.user.id)
+                .single();
+                
+              if (error) {
+                console.error("Error fetching user data:", error);
+                return;
+              }
+              
+              if (userData) {
+                setUser({
+                  id: userData.id,
+                  email: userData.email,
+                  name: userData.name,
+                  role: userData.role,
+                  address: userData.address
+                });
+              }
+            } catch (error) {
+              console.error("Error in auth state change:", error);
+            }
+          }, 0);
+        } else {
+          setUser(null);
+        }
+      }
     );
-    
-    if (matched) {
-      console.log("Usuario encontrado:", matched);
-      const userPayload: User = {
-        email: matched.email,
-        name: matched.name,
-        role: matched.role,
-        address: matched.address,
-        id: matched.id
-      };
+
+    // Luego verificamos si hay una sesión existente
+    supabase.auth.getSession().then(async ({ data: { session: currentSession } }) => {
+      setSession(currentSession);
+      setSupabaseUser(currentSession?.user ?? null);
       
-      // Asegurarse de guardar el ID si existe
-      if (matched.id) {
-        userPayload.id = matched.id;
+      if (currentSession?.user) {
+        try {
+          const { data: userData, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', currentSession.user.id)
+            .single();
+            
+          if (error) {
+            console.error("Error fetching user data:", error);
+            setIsLoading(false);
+            return;
+          }
+          
+          if (userData) {
+            setUser({
+              id: userData.id,
+              email: userData.email,
+              name: userData.name,
+              role: userData.role,
+              address: userData.address
+            });
+          }
+        } catch (error) {
+          console.error("Error in initial session check:", error);
+        }
       }
       
-      console.log("Usuario guardado en sesión:", userPayload);
-      setUser(userPayload);
-      localStorage.setItem("user", JSON.stringify(userPayload));
+      setIsLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Función para iniciar sesión
+  const login = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      // Verificar si las credenciales son correctas
+      const { data: users, error: findError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
+
+      if (findError) {
+        toast({
+          title: "Error de autenticación",
+          description: "Usuario no encontrado.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      if (users.password !== password) { // En producción, esto debería usar bcrypt para comparar hash
+        toast({
+          title: "Error de autenticación",
+          description: "Contraseña incorrecta.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Iniciar sesión en Supabase Auth
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        toast({
+          title: "Error de autenticación",
+          description: error.message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Actualizar el último login
+      await supabase
+        .from('users')
+        .update({ last_login: new Date().toISOString() })
+        .eq('id', users.id);
+
       toast({
         title: "Bienvenido",
-        description: `Hola, ${matched.name}`,
+        description: `Hola, ${users.name}`,
       });
+      
       navigate("/dashboard");
-    } else {
+    } catch (error: any) {
+      console.error("Login error:", error);
       toast({
         title: "Error de autenticación",
-        description: "Usuario o contraseña incorrectos.",
+        description: error.message || "Error desconocido",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
+  // Función para cerrar sesión
+  const logout = async () => {
+    setIsLoading(true);
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setSupabaseUser(null);
+      setSession(null);
+      
+      toast({
+        title: "Sesión cerrada",
+        description: "Has cerrado sesión correctamente.",
+      });
+      
+      navigate("/auth");
+    } catch (error: any) {
+      console.error("Logout error:", error);
+      toast({
+        title: "Error al cerrar sesión",
+        description: error.message || "Error desconocido",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Función para registrar un nuevo cliente
   const registerClient = async (userData: { email: string, password: string, name: string, address: string }) => {
     setIsLoading(true);
-
     try {
-      console.log("Registrando nuevo cliente:", userData);
-      
       // Verificar si el usuario ya existe
-      const allUsers = getAllUsers();
-      const existingUser = allUsers.find(u => u.email === userData.email);
-      
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', userData.email)
+        .single();
+
       if (existingUser) {
         toast({
           title: "Error de registro",
@@ -132,69 +238,94 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // Crear cliente en el servicio de pedidos
-      const newCustomer = addCustomer({
-        name: userData.name,
-        email: userData.email,
-        address: userData.address
-      });
-
-      console.log("Nuevo cliente creado:", newCustomer);
-
-      // Crear nuevo usuario
-      const newUser = {
+      // Registrar al usuario en Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
-        name: userData.name,
-        role: "cliente",
-        address: userData.address,
-        id: newCustomer.id // Guardar el ID del cliente para usarlo en pedidos
-      };
+      });
 
-      // Guardar en localStorage para persistencia
-      const registeredUsers = getRegisteredUsers();
-      registeredUsers.push(newUser);
-      saveRegisteredUsers(registeredUsers);
+      if (error) {
+        toast({
+          title: "Error de registro",
+          description: error.message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
 
-      // Iniciar sesión con el nuevo usuario
-      const userPayload: User = {
-        email: newUser.email,
-        name: newUser.name,
-        role: newUser.role,
-        address: newUser.address,
-        id: newUser.id
-      };
+      if (!data.user) {
+        toast({
+          title: "Error de registro",
+          description: "Error al crear el usuario",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
 
-      console.log("Nuevo usuario guardado en sesión:", userPayload);
-      setUser(userPayload);
-      localStorage.setItem("user", JSON.stringify(userPayload));
-      
+      // Crear el perfil del usuario
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert([{
+          id: data.user.id,
+          email: userData.email,
+          password: userData.password, // En producción, esto debería ser un hash
+          name: userData.name,
+          role: 'cliente',
+          address: userData.address
+        }]);
+
+      if (profileError) {
+        toast({
+          title: "Error de registro",
+          description: "Error al crear el perfil: " + profileError.message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       toast({
         title: "Registro exitoso",
-        description: `Bienvenido, ${newUser.name}`,
+        description: `Bienvenido, ${userData.name}`,
       });
-      
+
+      // El usuario ya estará autenticado por el signUp
       navigate("/dashboard");
-    } catch (error) {
-      console.error("Error durante el registro:", error);
+    } catch (error: any) {
+      console.error("Registration error:", error);
       toast({
         title: "Error de registro",
-        description: "Hubo un problema al registrar el usuario.",
+        description: error.message || "Error desconocido",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("user");
-    toast({
-      title: "Sesión cerrada",
-      description: "Has cerrado sesión correctamente.",
-    });
-    navigate("/auth");
+  // Función para obtener todos los usuarios (solo admin)
+  const getAllUsers = async () => {
+    if (!user || user.role !== 'admin') {
+      return [];
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*');
+
+      if (error) {
+        console.error("Error fetching users:", error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error("Error in getAllUsers:", error);
+      return [];
+    }
   };
 
   // Función para verificar si el usuario tiene acceso según su rol
@@ -223,6 +354,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <AuthContext.Provider value={{ 
       user, 
+      supabaseUser,
+      session,
       login, 
       logout, 
       isLoading, 
