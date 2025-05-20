@@ -22,7 +22,7 @@ interface AuthContextType {
   isLoading: boolean;
   hasAccess: (allowedRoles: string[]) => boolean;
   registerClient: (userData: { email: string, password: string, name: string, address: string }) => Promise<void>;
-  getAllUsers: () => Promise<any[]>;
+  getAllUsers: () => Promise<User[]>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -123,33 +123,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // Verificar si las credenciales son correctas
-      const { data: users, error: findError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', email)
-        .single();
-
-      if (findError) {
-        toast({
-          title: "Error de autenticación",
-          description: "Usuario no encontrado.",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      if (users.password !== password) { // En producción, esto debería usar bcrypt para comparar hash
-        toast({
-          title: "Error de autenticación",
-          description: "Contraseña incorrecta.",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-
       // Iniciar sesión en Supabase Auth
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -166,15 +139,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
+      // Obtener datos del usuario de la tabla users
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+
+      if (userError) {
+        toast({
+          title: "Error al obtener datos del usuario",
+          description: userError.message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       // Actualizar el último login
       await supabase
         .from('users')
         .update({ last_login: new Date().toISOString() })
-        .eq('id', users.id);
+        .eq('id', userData.id);
 
       toast({
         title: "Bienvenido",
-        description: `Hola, ${users.name}`,
+        description: `Hola, ${userData.name}`,
       });
       
       navigate("/dashboard");
@@ -306,7 +296,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Función para obtener todos los usuarios (solo admin)
-  const getAllUsers = async () => {
+  const getAllUsers = async (): Promise<User[]> => {
     if (!user || user.role !== 'admin') {
       return [];
     }
@@ -321,7 +311,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return [];
       }
 
-      return data || [];
+      return data.map(user => ({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        address: user.address
+      })) || [];
     } catch (error) {
       console.error("Error in getAllUsers:", error);
       return [];
