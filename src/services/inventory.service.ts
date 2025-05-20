@@ -1,335 +1,236 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { Product, InventoryItem, Warehouse, InventoryMovement, TransferRequest } from '@/types/inventory-types';
+import { Product, Warehouse, Movement, TransferRequest, InventoryItem } from '@/types/inventory-types';
 
-/**
- * Obtener todos los productos con su inventario
- */
-export const getAllInventory = async (): Promise<InventoryItem[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('inventory')
-      .select('*, product:product_id(*), warehouse:warehouse_id(*)');
-      
-    if (error) {
-      console.error("Error fetching inventory:", error);
-      return [];
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error("Error in getAllInventory:", error);
-    return [];
-  }
-};
-
-/**
- * Alias of getAllInventory for backward compatibility
- */
-export const getInventory = getAllInventory;
-
-/**
- * Obtener todos los almacenes
- */
-export const getAllWarehouses = async (): Promise<Warehouse[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('warehouses')
-      .select('*');
-      
-    if (error) {
-      console.error("Error fetching warehouses:", error);
-      return [];
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error("Error in getAllWarehouses:", error);
-    return [];
-  }
-};
-
-/**
- * Obtener todos los productos
- */
-export const getAllProducts = async (): Promise<Product[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*');
-      
-    if (error) {
-      console.error("Error fetching products:", error);
-      return [];
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error("Error in getAllProducts:", error);
-    return [];
-  }
-};
-
-/**
- * Actualizar la cantidad de inventario
- */
-export const updateInventoryQuantity = async (
-  inventoryId: string, 
-  newQuantity: number
-): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from('inventory')
-      .update({ 
-        quantity: newQuantity,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', inventoryId);
-      
-    if (error) {
-      console.error("Error updating inventory:", error);
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    console.error("Error in updateInventoryQuantity:", error);
-    return false;
-  }
-};
-
-/**
- * Realizar transferencia entre almacenes
- */
-export const transferInventory = async (
-  transfer: TransferRequest,
-  userId: string,
-  notes?: string
-): Promise<boolean> => {
-  try {
-    // Registrar movimiento de salida
-    const { error: outError } = await supabase
-      .from('inventory_movements')
-      .insert({
-        product_id: transfer.product_id,
-        warehouse_id: transfer.sourceWarehouseId,
-        quantity: -transfer.quantity, // Cantidad negativa para salida
-        responsible_id: userId,
-        type: 'transferencia_salida',
-        destination_warehouse_id: transfer.destinationWarehouseId,
-        notes
-      });
-      
-    if (outError) {
-      console.error("Error recording outbound movement:", outError);
-      return false;
-    }
-    
-    // Registrar movimiento de entrada
-    const { error: inError } = await supabase
-      .from('inventory_movements')
-      .insert({
-        product_id: transfer.product_id,
-        warehouse_id: transfer.destinationWarehouseId,
-        quantity: transfer.quantity, // Cantidad positiva para entrada
-        responsible_id: userId,
-        type: 'transferencia_entrada',
-        source_warehouse_id: transfer.sourceWarehouseId,
-        notes
-      });
-      
-    if (inError) {
-      console.error("Error recording inbound movement:", inError);
-      return false;
-    }
-    
-    // Actualizar inventario de origen
-    const { data: sourceInventory, error: sourceQueryError } = await supabase
-      .from('inventory')
-      .select('id, quantity')
-      .eq('product_id', transfer.product_id)
-      .eq('warehouse_id', transfer.sourceWarehouseId)
-      .single();
-      
-    if (sourceQueryError) {
-      console.error("Error querying source inventory:", sourceQueryError);
-      return false;
-    }
-    
-    if (sourceInventory) {
-      const { error: sourceUpdateError } = await supabase
-        .from('inventory')
-        .update({ 
-          quantity: sourceInventory.quantity - transfer.quantity,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', sourceInventory.id);
-        
-      if (sourceUpdateError) {
-        console.error("Error updating source inventory:", sourceUpdateError);
-        return false;
+// Get all products with their stock information
+export const getProducts = async (): Promise<Product[]> => {
+  // This would be replaced with an actual API call to Supabase
+  // For now, return dummy data
+  return [
+    {
+      id: "1",
+      name: "Ron Viejo de Caldas",
+      sku: "RVC-001",
+      description: "Ron añejo de 8 años",
+      price: 45000,
+      category: "Ron",
+      threshold: 10,
+      box_qty: 12,
+      warehouse_quantities: {
+        "w1": 50,
+        "w2": 20,
+        "w3": 15
+      }
+    },
+    {
+      id: "2",
+      name: "Aguardiente Antioqueño",
+      sku: "AA-002",
+      description: "Aguardiente sin azúcar",
+      price: 35000,
+      category: "Aguardiente",
+      threshold: 15,
+      box_qty: 24,
+      warehouse_quantities: {
+        "w1": 80,
+        "w2": 30,
+        "w3": 25
+      }
+    },
+    {
+      id: "3",
+      name: "Whisky Jack Daniel's",
+      sku: "WJD-003",
+      description: "Whisky Tennessee",
+      price: 120000,
+      category: "Whisky",
+      threshold: 5,
+      box_qty: 6,
+      warehouse_quantities: {
+        "w1": 12,
+        "w2": 8,
+        "w3": 5
+      }
+    },
+    {
+      id: "4",
+      name: "Vodka Absolut",
+      sku: "VA-004",
+      description: "Vodka sueco",
+      price: 75000,
+      category: "Vodka",
+      threshold: 8,
+      box_qty: 12,
+      warehouse_quantities: {
+        "w1": 25,
+        "w2": 10,
+        "w3": 15
+      }
+    },
+    {
+      id: "5",
+      name: "Tequila Don Julio",
+      sku: "TDJ-005",
+      description: "Tequila reposado premium",
+      price: 180000,
+      category: "Tequila",
+      threshold: 5,
+      box_qty: 6,
+      warehouse_quantities: {
+        "w1": 8,
+        "w2": 4,
+        "w3": 6
       }
     }
-    
-    // Actualizar o crear inventario de destino
-    const { data: destInventory, error: destQueryError } = await supabase
-      .from('inventory')
-      .select('id, quantity')
-      .eq('product_id', transfer.product_id)
-      .eq('warehouse_id', transfer.destinationWarehouseId)
-      .single();
-      
-    if (destQueryError && destQueryError.code !== 'PGRST116') { // PGRST116 = No rows returned
-      console.error("Error querying destination inventory:", destQueryError);
-      return false;
-    }
-    
-    if (destInventory) {
-      // Actualizar inventario existente
-      const { error: destUpdateError } = await supabase
-        .from('inventory')
-        .update({ 
-          quantity: destInventory.quantity + transfer.quantity,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', destInventory.id);
-        
-      if (destUpdateError) {
-        console.error("Error updating destination inventory:", destUpdateError);
-        return false;
-      }
-    } else {
-      // Crear nuevo registro de inventario
-      const { error: destInsertError } = await supabase
-        .from('inventory')
-        .insert({
-          product_id: transfer.product_id,
-          warehouse_id: transfer.destinationWarehouseId,
-          quantity: transfer.quantity
-        });
-        
-      if (destInsertError) {
-        console.error("Error creating destination inventory:", destInsertError);
-        return false;
-      }
-    }
-    
-    return true;
-  } catch (error) {
-    console.error("Error in transferInventory:", error);
-    return false;
-  }
+  ];
 };
 
-/**
- * Obtener historial de movimientos
- */
-export const getInventoryMovements = async (productId?: string): Promise<InventoryMovement[]> => {
-  try {
-    let query = supabase
-      .from('inventory_movements')
-      .select('*, source:source_warehouse_id(name), destination:destination_warehouse_id(name), warehouse:warehouse_id(name), product:product_id(name), responsible:responsible_id(name)');
-      
-    if (productId) {
-      query = query.eq('product_id', productId);
+// Get all warehouses
+export const getWarehouses = async (): Promise<Warehouse[]> => {
+  // This would be replaced with an actual API call
+  // For now, return dummy data
+  return [
+    {
+      id: "w1",
+      name: "Bodega Principal",
+      type: "principal",
+      address: "Calle 80 #45-23, Medellín"
+    },
+    {
+      id: "w2",
+      name: "Bodega Norte",
+      type: "secundaria",
+      address: "Carrera 52 #70-30, Medellín"
+    },
+    {
+      id: "w3",
+      name: "Bodega Sur",
+      type: "secundaria",
+      address: "Calle 10 #43-12, Medellín"
     }
-    
-    query = query.order('created_at', { ascending: false });
-    
-    const { data, error } = await query;
-      
-    if (error) {
-      console.error("Error fetching inventory movements:", error);
-      return [];
-    }
-    
-    return data || [];
-  } catch (error) {
-    console.error("Error in getInventoryMovements:", error);
-    return [];
-  }
+  ];
 };
 
-// Export all types from the types file for backward compatibility
-export type { Product, InventoryItem, Warehouse, InventoryMovement, TransferRequest };
-
-// Helper function for MovementHistory component that's missing
-export const addMovement = async (
-  productId: string,
-  type: string,
-  quantity: number,
-  responsibleId: string,
-  warehouseId: string,
-  notes?: string
-): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from('inventory_movements')
-      .insert({
-        product_id: productId,
-        warehouse_id: warehouseId,
-        quantity: type === 'entrada' ? quantity : -quantity,
-        responsible_id: responsibleId,
-        type,
-        notes
-      });
-      
-    if (error) {
-      console.error("Error adding movement:", error);
-      return false;
-    }
-    
-    // Update inventory quantity
-    const { data: inventoryItem, error: inventoryError } = await supabase
-      .from('inventory')
-      .select('id, quantity')
-      .eq('product_id', productId)
-      .eq('warehouse_id', warehouseId)
-      .single();
-    
-    if (inventoryError && inventoryError.code !== 'PGRST116') {
-      console.error("Error fetching inventory item:", inventoryError);
-      return false;
-    }
-    
-    if (inventoryItem) {
-      // Update existing inventory item
-      const newQuantity = inventoryItem.quantity + (type === 'entrada' ? quantity : -quantity);
-      const { error: updateError } = await supabase
-        .from('inventory')
-        .update({ 
-          quantity: newQuantity,
-          updated_at: new Date().toISOString() 
-        })
-        .eq('id', inventoryItem.id);
-        
-      if (updateError) {
-        console.error("Error updating inventory quantity:", updateError);
-        return false;
+// Get inventory movements history
+export const getMovements = async (): Promise<Movement[]> => {
+  // This would be replaced with an actual API call
+  // For now, return dummy data
+  return [
+    {
+      id: "m1",
+      type: "entrada",
+      product_id: "1",
+      warehouse_id: "w1",
+      quantity: 100,
+      responsible_id: "u1",
+      created_at: "2023-05-10T14:30:00Z",
+      product: {
+        name: "Ron Viejo de Caldas",
+        sku: "RVC-001"
+      },
+      warehouse: {
+        name: "Bodega Principal"
+      },
+      responsible: {
+        name: "Admin"
       }
-    } else if (type === 'entrada') {
-      // Create new inventory item for entrada
-      const { error: createError } = await supabase
-        .from('inventory')
-        .insert({
-          product_id: productId,
-          warehouse_id: warehouseId,
-          quantity
-        });
-        
-      if (createError) {
-        console.error("Error creating inventory item:", createError);
-        return false;
+    },
+    {
+      id: "m2",
+      type: "transferencia",
+      product_id: "1",
+      warehouse_id: "w1",
+      quantity: 20,
+      source_warehouse_id: "w1",
+      destination_warehouse_id: "w2",
+      responsible_id: "u1",
+      created_at: "2023-05-11T10:15:00Z",
+      product: {
+        name: "Ron Viejo de Caldas",
+        sku: "RVC-001"
+      },
+      warehouse: {
+        name: "Bodega Principal"
+      },
+      source_warehouse: {
+        name: "Bodega Principal"
+      },
+      destination_warehouse: {
+        name: "Bodega Norte"
+      },
+      responsible: {
+        name: "Admin"
+      }
+    },
+    {
+      id: "m3",
+      type: "salida",
+      product_id: "1",
+      warehouse_id: "w1",
+      quantity: 10,
+      responsible_id: "u1",
+      created_at: "2023-05-12T16:45:00Z",
+      product: {
+        name: "Ron Viejo de Caldas",
+        sku: "RVC-001"
+      },
+      warehouse: {
+        name: "Bodega Principal"
+      },
+      responsible: {
+        name: "Admin"
       }
     }
-    
-    return true;
-  } catch (error) {
-    console.error("Error in addMovement:", error);
-    return false;
-  }
+  ];
 };
 
-// Helper functions for MovementHistory component
-export const getMovements = getInventoryMovements;
-export const getWarehouses = getAllWarehouses;
+// Get inventory for a specific warehouse
+export const getInventory = async (warehouseId: string): Promise<InventoryItem[]> => {
+  // This would be replaced with an actual API call
+  return [];
+};
+
+// Add a new product
+export const addProduct = async (product: Omit<Product, "id">): Promise<Product> => {
+  // This would be replaced with an actual API call
+  console.log("Adding product:", product);
+  return {
+    id: Math.random().toString(36).substring(2, 11),
+    ...product
+  };
+};
+
+// Add inventory movement
+export const addMovement = async (movement: Omit<Movement, "id" | "created_at">): Promise<Movement> => {
+  // This would be replaced with an actual API call
+  console.log("Adding movement:", movement);
+  return {
+    id: Math.random().toString(36).substring(2, 11),
+    created_at: new Date().toISOString(),
+    ...movement
+  };
+};
+
+// Transfer products between warehouses
+export const transferProducts = async (transfer: TransferRequest): Promise<Movement> => {
+  // This would be replaced with an actual API call
+  console.log("Transferring products:", transfer);
+  return {
+    id: Math.random().toString(36).substring(2, 11),
+    type: "transferencia",
+    product_id: transfer.product_id,
+    warehouse_id: transfer.sourceWarehouseId,
+    source_warehouse_id: transfer.sourceWarehouseId,
+    destination_warehouse_id: transfer.destinationWarehouseId,
+    quantity: transfer.quantity,
+    responsible_id: transfer.responsible_id,
+    notes: transfer.notes,
+    created_at: new Date().toISOString()
+  };
+};
+
+// Update product stock
+export const updateStock = async (productId: string, warehouseId: string, quantity: number): Promise<void> => {
+  // This would be replaced with an actual API call
+  console.log(`Updating stock for product ${productId} in warehouse ${warehouseId}: ${quantity}`);
+};

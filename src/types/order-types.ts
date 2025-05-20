@@ -52,6 +52,15 @@ export interface Invoice {
   status: string;
   pdf_url?: string;
   order?: Order;
+  // UI specific fields
+  orderNumber?: string;
+  customerName?: string;
+  customerAddress?: string;
+  date?: string;
+  subtotal?: number;
+  tax?: number;
+  total?: number;
+  items?: OrderItem[];
 }
 
 export interface Delivery {

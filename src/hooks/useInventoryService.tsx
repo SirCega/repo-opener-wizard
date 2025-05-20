@@ -1,39 +1,25 @@
 
 import { useState, useEffect } from 'react';
-import { 
-  getAllInventory, 
-  getAllProducts, 
-  getAllWarehouses,
-  getInventoryMovements,
-  updateInventoryQuantity,
-  transferInventory
-} from '@/services/inventory.service';
-import { 
-  Product, 
-  InventoryItem, 
-  Warehouse, 
-  InventoryMovement, 
-  TransferRequest 
-} from '@/types/inventory-types';
+import * as inventoryService from '@/services/inventory.service';
+import { Product, Warehouse, Movement, TransferRequest } from '@/types/inventory-types';
 
 export function useInventoryService() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [movements, setMovements] = useState<InventoryMovement[]>([]);
+  const [movements, setMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadProducts();
-    loadInventory();
     loadWarehouses();
+    loadMovements();
   }, []);
 
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const data = await getAllProducts();
+      const data = await inventoryService.getProducts();
       setProducts(data);
       setError(null);
     } catch (err) {
@@ -44,24 +30,10 @@ export function useInventoryService() {
     }
   };
 
-  const loadInventory = async () => {
-    try {
-      setLoading(true);
-      const data = await getAllInventory();
-      setInventory(data);
-      setError(null);
-    } catch (err) {
-      setError('Error loading inventory');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const loadWarehouses = async () => {
     try {
       setLoading(true);
-      const data = await getAllWarehouses();
+      const data = await inventoryService.getWarehouses();
       setWarehouses(data);
       setError(null);
     } catch (err) {
@@ -72,10 +44,10 @@ export function useInventoryService() {
     }
   };
 
-  const loadMovements = async (productId?: string) => {
+  const loadMovements = async () => {
     try {
       setLoading(true);
-      const data = await getInventoryMovements(productId);
+      const data = await inventoryService.getMovements();
       setMovements(data);
       setError(null);
     } catch (err) {
@@ -86,18 +58,15 @@ export function useInventoryService() {
     }
   };
 
-  const updateQuantity = async (inventoryId: string, newQuantity: number) => {
+  const addProduct = async (product: Omit<Product, "id">) => {
     try {
       setLoading(true);
-      const success = await updateInventoryQuantity(inventoryId, newQuantity);
-      if (success) {
-        await loadInventory();
-      } else {
-        setError('Failed to update quantity');
-      }
-      return success;
+      await inventoryService.addProduct(product);
+      await loadProducts();
+      setError(null);
+      return true;
     } catch (err) {
-      setError('Error updating quantity');
+      setError('Error adding product');
       console.error(err);
       return false;
     } finally {
@@ -105,19 +74,33 @@ export function useInventoryService() {
     }
   };
 
-  const transferStock = async (transfer: TransferRequest, userId: string, notes?: string) => {
+  const addMovement = async (movement: Omit<Movement, "id" | "created_at">) => {
     try {
       setLoading(true);
-      const success = await transferInventory(transfer, userId, notes);
-      if (success) {
-        await loadInventory();
-        await loadMovements();
-      } else {
-        setError('Failed to transfer inventory');
-      }
-      return success;
+      await inventoryService.addMovement(movement);
+      await loadMovements();
+      await loadProducts(); // Reload products as quantities may have changed
+      setError(null);
+      return true;
     } catch (err) {
-      setError('Error transferring inventory');
+      setError('Error adding movement');
+      console.error(err);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const transferProducts = async (transfer: TransferRequest) => {
+    try {
+      setLoading(true);
+      await inventoryService.transferProducts(transfer);
+      await loadProducts(); // Reload products after transfer
+      await loadMovements(); // Reload movements to show the transfer
+      setError(null);
+      return true;
+    } catch (err) {
+      setError('Error transferring products');
       console.error(err);
       return false;
     } finally {
@@ -127,16 +110,15 @@ export function useInventoryService() {
 
   return {
     products,
-    inventory,
     warehouses,
     movements,
     loading,
     error,
     loadProducts,
-    loadInventory,
     loadWarehouses,
     loadMovements,
-    updateQuantity,
-    transferStock
+    addProduct,
+    addMovement,
+    transferProducts
   };
 }

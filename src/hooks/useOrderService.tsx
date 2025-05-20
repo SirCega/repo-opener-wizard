@@ -11,8 +11,7 @@ import {
 import { 
   Order, 
   Invoice, 
-  Delivery,
-  OrderItem
+  Delivery 
 } from '@/types/order-types';
 import { User } from '@/types/auth-types';
 

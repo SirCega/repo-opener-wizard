@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Logo from '@/components/Layout/Logo';
 import { useToast } from '@/hooks/use-toast';
+import { Wine } from 'lucide-react';
 
 const Auth: React.FC = () => {
   // Login state
@@ -45,7 +46,9 @@ const Auth: React.FC = () => {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <Logo size="lg" />
+            <div className="h-16 w-16 rounded-full bg-primary flex items-center justify-center">
+              <Wine className="h-8 w-8 text-white" />
+            </div>
           </div>
           <h1 className="text-3xl font-bold text-foreground">LiquiStock</h1>
           <p className="text-muted-foreground mt-2">Sistema de Gestión de Inventarios</p>
