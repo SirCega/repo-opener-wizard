@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Product, 
@@ -349,7 +350,7 @@ export const addMovement = async (movement: Omit<MovementType, "id" | "created_a
     // Add required properties to satisfy the interface
     const result: MovementType = {
       ...data,
-      warehouse: movement.warehouse,
+      warehouse: movement.warehouse || { name: 'Unknown Warehouse' },
       created_at: new Date().toISOString()
     };
     
