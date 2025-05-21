@@ -100,7 +100,7 @@ export function useOrderService() {
   const handlePayInvoice = async (invoiceId: string) => {
     try {
       setLoading(true);
-      orderService.payInvoice(invoiceId);
+      await orderService.payInvoice(invoiceId);
       await loadInvoices();
       return true;
     } catch (err: any) {
@@ -140,7 +140,7 @@ export function useOrderService() {
     updateOrder,
     payInvoice: handlePayInvoice,
     createOrder: createNewOrder,
-    // Agregar alias para mantener compatibilidad con código existente
+    // Alias for backwards compatibility
     getAllOrders: loadOrders,
     getAllInvoices: loadInvoices,
     getAllDeliveries: loadDeliveries

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,7 +34,9 @@ const Invoices: React.FC = () => {
   const loadInvoices = async () => {
     try {
       setLoading(true);
-      const data = await orderService.getAllInvoices();
+      await orderService.loadInvoices();
+      
+      const data = orderService.invoices;
       
       const sorted = [...data].sort((a, b) => 
         new Date(b.issue_date).getTime() - new Date(a.issue_date).getTime()
@@ -54,14 +57,14 @@ const Invoices: React.FC = () => {
     }
   };
 
-  const handlePay = (id: string) => {
+  const handlePay = async (id: string) => {
     try {
-      orderService.payInvoice(id);
+      await orderService.payInvoice(id);
       toast({
         title: 'Pago registrado',
         description: 'La factura ha sido marcada como pagada'
       });
-      loadInvoices();
+      await loadInvoices();
     } catch (error) {
       console.error('Error paying invoice:', error);
       toast({
