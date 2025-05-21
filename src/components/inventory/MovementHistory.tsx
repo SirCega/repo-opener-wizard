@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
@@ -87,7 +86,7 @@ const MovementHistory: React.FC<MovementHistoryProps> = ({ warehouseId, products
       // Reset form and refresh data
       setType('entrada');
       setSelectedProduct('');
-      setSelectedWarehouse('');
+      setSelectedWarehouse(warehouseId || '');
       setQuantity('');
       setNotes('');
       await loadMovements();
