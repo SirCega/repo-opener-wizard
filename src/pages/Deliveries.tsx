@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -43,7 +44,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Order, getOrders, updateOrderStatus } from '@/services/order.service';
+import { Order } from '@/types/order-types';
+import { useOrderService } from '@/hooks/useOrderService';
 
 // Datos de domiciliarios
 const deliveryPeople = [
@@ -64,11 +66,25 @@ const Deliveries: React.FC = () => {
   const [isViewDeliveryDialogOpen, setIsViewDeliveryDialogOpen] = useState(false);
   const [selectedDeliveryPerson, setSelectedDeliveryPerson] = useState<number | null>(null);
   const { toast } = useToast();
+  const orderService = useOrderService();
   
   // Cargar pedidos
   useEffect(() => {
-    const loadOrders = getOrders();
-    setOrders(loadOrders);
+    const fetchOrders = async () => {
+      try {
+        const loadedOrders = await orderService.getAllOrders();
+        setOrders(loadedOrders);
+      } catch (error) {
+        console.error("Error loading orders:", error);
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los pedidos",
+          variant: "destructive"
+        });
+      }
+    };
+    
+    fetchOrders();
   }, []);
   
   // Pedidos que son entregas (preparados o enviados)
@@ -104,18 +120,24 @@ const Deliveries: React.FC = () => {
         break;
     }
     
-    return filteredOrders.filter(order => 
-      (searchQuery === '' || 
-        order.customer.toString().toLowerCase().includes(searchQuery.toLowerCase()) || 
-        order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())) &&
-      (statusFilter === 'all' || order.status === statusFilter)
-    );
+    return filteredOrders.filter(order => {
+      const customerString = typeof order.customer === 'string' 
+        ? order.customer 
+        : order.customer?.name || '';
+      
+      return (
+        (searchQuery === '' || 
+          customerString.toLowerCase().includes(searchQuery.toLowerCase()) || 
+          order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())) &&
+        (statusFilter === 'all' || order.status === statusFilter)
+      );
+    });
   };
   
   const filteredDeliveries = getFilteredDeliveries();
   
   // Asignar domiciliario
-  const assignDeliveryPerson = () => {
+  const assignDeliveryPerson = async () => {
     if (!currentOrder || !selectedDeliveryPerson) {
       toast({
         title: "Error",
@@ -134,15 +156,16 @@ const Deliveries: React.FC = () => {
       }
       
       // Actualizar el estado del pedido a enviado
-      const updatedOrder = updateOrderStatus(
+      await orderService.updateOrder(
         currentOrder.id,
         'enviado',
         deliveryPerson.id,
         deliveryPerson.name
       );
       
-      // Actualizar la lista de pedidos
-      setOrders(orders.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+      // Actualizar la lista de pedidos con datos frescos
+      const updatedOrders = await orderService.getAllOrders();
+      setOrders(updatedOrders);
       
       toast({
         title: "Domiciliario asignado",
@@ -168,18 +191,19 @@ const Deliveries: React.FC = () => {
   };
   
   // Marcar pedido como entregado
-  const markAsDelivered = () => {
+  const markAsDelivered = async () => {
     if (!currentOrder) return;
     
     try {
       // Actualizar el estado del pedido a entregado
-      const updatedOrder = updateOrderStatus(
+      await orderService.updateOrder(
         currentOrder.id,
         'entregado'
       );
       
-      // Actualizar la lista de pedidos
-      setOrders(orders.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+      // Actualizar la lista de pedidos con datos frescos
+      const updatedOrders = await orderService.getAllOrders();
+      setOrders(updatedOrders);
       
       toast({
         title: "Entrega completada",
@@ -209,6 +233,17 @@ const Deliveries: React.FC = () => {
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
+  };
+
+  // Helper function to display customer name
+  const renderCustomerName = (customer: Order['customer']) => {
+    if (typeof customer === 'string') {
+      return customer;
+    }
+    if (customer && typeof customer === 'object' && 'name' in customer) {
+      return customer.name;
+    }
+    return "Cliente desconocido";
   };
   
   return (
@@ -343,7 +378,7 @@ const Deliveries: React.FC = () => {
                     filteredDeliveries.map((delivery) => (
                       <TableRow key={delivery.id}>
                         <TableCell className="font-medium">{delivery.orderNumber}</TableCell>
-                        <TableCell>{delivery.customer.toString()}</TableCell>
+                        <TableCell>{renderCustomerName(delivery.customer)}</TableCell>
                         <TableCell>{new Date(delivery.date).toLocaleDateString()}</TableCell>
                         <TableCell className="max-w-[200px] truncate">{delivery.address}</TableCell>
                         <TableCell>
@@ -411,7 +446,7 @@ const Deliveries: React.FC = () => {
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Cliente:</span>
-                        <span className="font-medium">{currentOrder.customer.toString()}</span>
+                        <span className="font-medium">{renderCustomerName(currentOrder.customer)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Dirección:</span>
@@ -511,7 +546,7 @@ const Deliveries: React.FC = () => {
                         Información del Cliente
                       </h3>
                       <div className="bg-muted/30 rounded-md p-3">
-                        <p className="font-medium">{currentOrder.customer.toString()}</p>
+                        <p className="font-medium">{renderCustomerName(currentOrder.customer)}</p>
                         <p className="text-sm text-muted-foreground">
                           Cliente #{currentOrder.customerId}
                         </p>

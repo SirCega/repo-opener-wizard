@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
@@ -16,17 +17,19 @@ import {
 } from "@/components/ui/table"
 import { useAuth } from '@/hooks/useAuth';
 import { useInventoryService } from '@/hooks/useInventoryService';
+import { Product, Movement, Warehouse } from '@/types/inventory-types';
 
 interface MovementHistoryProps {
   warehouseId?: string;
+  products?: Product[]; // Add products prop
 }
 
-const MovementHistory: React.FC<MovementHistoryProps> = ({ warehouseId }) => {
+const MovementHistory: React.FC<MovementHistoryProps> = ({ warehouseId, products: passedProducts }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const userId = user?.id;
   const { 
-    products,
+    products: serviceProducts,
     warehouses,
     movements,
     loading,
@@ -34,6 +37,9 @@ const MovementHistory: React.FC<MovementHistoryProps> = ({ warehouseId }) => {
     loadMovements,
     addMovement
   } = useInventoryService();
+  
+  // Use passed products if provided, otherwise use from service
+  const products = passedProducts || serviceProducts;
   
   const [type, setType] = useState<string>('entrada');
   const [selectedProduct, setSelectedProduct] = useState<string>('');
@@ -51,6 +57,11 @@ const MovementHistory: React.FC<MovementHistoryProps> = ({ warehouseId }) => {
     e.preventDefault();
     
     if (!selectedProduct || !selectedWarehouse || !quantity) {
+      toast({
+        title: "Error",
+        description: "Todos los campos son obligatorios",
+        variant: "destructive"
+      });
       return;
     }
 

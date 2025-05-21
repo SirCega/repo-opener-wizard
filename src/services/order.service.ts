@@ -1,74 +1,20 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/types/auth-types';
-
-// Define all necessary types and export them
-export interface OrderItem {
-  id: string;
-  order_id: string;
-  product_id: string;
-  quantity: number;
-  unit_price: number;
-  subtotal: number;
-  warehouse_id: string;
-  productName: string;
-  price: number;
-}
-
-export interface Order {
-  id: string;
-  orderNumber: string;
-  customer: string;
-  customerId: string;
-  date: string;
-  status: 'pendiente' | 'preparacion' | 'enviado' | 'entregado' | 'cancelado';
-  address: string;
-  total: number;
-  deliveryPersonId?: number;
-  deliveryPersonName?: string;
-  customer_id: string;
-  shipping_address: string;
-  total_amount: number;
-  payment_status: string;
-  items?: OrderItem[];
-}
-
-export interface Invoice {
-  id: string;
-  order_id: string;
-  invoice_number: string;
-  issue_date: string;
-  due_date: string;
-  total_amount: number;
-  tax_amount: number;
-  status: string;
-  orderNumber: string;
-  customerName: string;
-  customerAddress: string;
-  date: string;
-  subtotal: number;
-  tax: number;
-  total: number;
-  items?: OrderItem[];
-}
-
-export interface Delivery {
-  id: string;
-  order_id: string;
-  delivery_person_id: string;
-  status: string;
-  assigned_at: string;
-  estimated_delivery?: string;
-  actual_delivery?: string;
-}
-
-export type Customer = User;
+import { 
+  Order, 
+  OrderItem, 
+  Invoice, 
+  Delivery,
+  Customer
+} from '@/types/order-types';
 
 // Dummy data for now - this would be replaced with actual API calls
 const dummyOrders: Order[] = [
   {
     id: "1",
     orderNumber: "ORD-001",
-    customer: { id: "user1", name: "Juan Pérez", email: "juan@example.com", role: "cliente" },
+    customer: "Juan Pérez",
     customerId: "user1",
     date: "2023-05-15",
     status: "preparacion",
@@ -86,7 +32,7 @@ const dummyOrders: Order[] = [
   {
     id: "2",
     orderNumber: "ORD-002",
-    customer: { id: "user2", name: "María García", email: "maria@example.com", role: "cliente" },
+    customer: "María García",
     customerId: "user2",
     date: "2023-05-16",
     status: "enviado",
@@ -105,7 +51,7 @@ const dummyOrders: Order[] = [
   {
     id: "3",
     orderNumber: "ORD-003",
-    customer: { id: "user3", name: "Carlos Rodríguez", email: "carlos@example.com", role: "cliente" },
+    customer: "Carlos Rodríguez",
     customerId: "user3",
     date: "2023-05-17",
     status: "entregado",
@@ -168,22 +114,9 @@ const dummyInvoices: Invoice[] = [
   }
 ];
 
-// Hook for order service
-export const useOrderService = () => {
-  return {
-    getAllOrders,
-    getOrderById,
-    updateOrderStatus,
-    getAllInvoices,
-    payInvoice,
-    getAllDeliveries,
-    getCustomers
-  };
-};
-
 export const getAllOrders = async (): Promise<Order[]> => {
   // This would be replaced with an actual API call to Supabase
-  return dummyOrders;
+  return Promise.resolve(dummyOrders);
 };
 
 export const getOrders = (): Order[] => {
@@ -202,7 +135,7 @@ export const updateOrderStatus = async (
   status: string,
   deliveryPersonId?: number,
   deliveryPersonName?: string
-): Promise<any> => {
+): Promise<Order> => {
   // This would be replaced with an actual API call
   const orderIndex = dummyOrders.findIndex(o => o.id === orderId);
   if (orderIndex === -1) {
@@ -228,7 +161,7 @@ export const updateOrderStatus = async (
 
 export const getAllInvoices = async (): Promise<Invoice[]> => {
   // This would be replaced with an actual API call
-  return dummyInvoices;
+  return Promise.resolve(dummyInvoices);
 };
 
 export const getInvoices = (): Invoice[] => {
@@ -236,9 +169,9 @@ export const getInvoices = (): Invoice[] => {
   return dummyInvoices;
 };
 
-export const payInvoice = (invoiceId: number): Invoice => {
+export const payInvoice = (invoiceId: string): Invoice => {
   // This would be replaced with an actual API call
-  const invoice = dummyInvoices.find(i => i.id === invoiceId.toString());
+  const invoice = dummyInvoices.find(i => i.id === invoiceId);
   if (!invoice) {
     throw new Error("Invoice not found");
   }
@@ -249,7 +182,7 @@ export const payInvoice = (invoiceId: number): Invoice => {
 
 export const getAllDeliveries = async (): Promise<Delivery[]> => {
   // This would be replaced with an actual API call
-  return [];
+  return Promise.resolve([]);
 };
 
 export const getDeliveries = (): Delivery[] => {
@@ -257,17 +190,39 @@ export const getDeliveries = (): Delivery[] => {
   return [];
 };
 
-export const getCustomers = async (): Promise<User[]> => {
+export const getCustomers = async (): Promise<Customer[]> => {
   // This would be replaced with an actual API call
-  return [
+  return Promise.resolve([
     { id: "user1", name: "Juan Pérez", email: "juan@example.com", role: "cliente" },
     { id: "user2", name: "María García", email: "maria@example.com", role: "cliente" },
     { id: "user3", name: "Carlos Rodríguez", email: "carlos@example.com", role: "cliente" }
-  ];
+  ]);
 };
 
-// Define Customer type for better compatibility
-export type Customer = User;
+export const createOrder = async (orderData: Omit<Order, "id">): Promise<Order> => {
+  // This would be replaced with an actual API call
+  const newOrder = {
+    id: Math.random().toString(36).substring(2, 11),
+    ...orderData,
+  };
+  dummyOrders.push(newOrder as Order);
+  return newOrder as Order;
+};
 
-// Export types from order-types
-export type { Order, OrderItem, Invoice, Delivery } from '@/types/order-types';
+// Export the order service hook
+export const useOrderService = () => {
+  return {
+    getAllOrders,
+    getOrderById,
+    updateOrderStatus,
+    getAllInvoices,
+    getInvoices,
+    payInvoice,
+    getAllDeliveries,
+    getCustomers,
+    createOrder
+  };
+};
+
+// Export the types
+export type { Order, OrderItem, Invoice, Delivery, Customer };

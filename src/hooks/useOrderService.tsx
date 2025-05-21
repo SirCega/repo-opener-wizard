@@ -1,17 +1,12 @@
+
 import { useState, useEffect } from 'react';
 import * as orderService from '@/services/order.service';
-import { User } from '@/types/auth-types';
-
-// Re-exporting types from order service
-export type { Order, OrderItem, Invoice, Delivery } from '@/services/order.service';
-
-// Define Customer type
-export type Customer = User;
+import { Order, OrderItem, Invoice, Delivery, Customer } from '@/types/order-types';
 
 export function useOrderService() {
-  const [orders, setOrders] = useState<orderService.Order[]>([]);
-  const [invoices, setInvoices] = useState<orderService.Invoice[]>([]);
-  const [deliveries, setDeliveries] = useState<orderService.Delivery[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,7 +97,7 @@ export function useOrderService() {
     }
   };
 
-  const handlePayInvoice = async (invoiceId: number) => {
+  const handlePayInvoice = async (invoiceId: string) => {
     try {
       setLoading(true);
       orderService.payInvoice(invoiceId);
@@ -111,6 +106,20 @@ export function useOrderService() {
     } catch (err: any) {
       setError(err.message || 'Error paying invoice');
       return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createNewOrder = async (orderData: Omit<Order, "id">) => {
+    try {
+      setLoading(true);
+      const newOrder = await orderService.createOrder(orderData);
+      await loadOrders();
+      return newOrder;
+    } catch (err: any) {
+      setError(err.message || 'Error creating order');
+      return null;
     } finally {
       setLoading(false);
     }
@@ -128,7 +137,11 @@ export function useOrderService() {
     loadDeliveries,
     loadCustomers,
     getOrder,
-    updateOrder: orderService.updateOrderStatus,
+    updateOrder,
     payInvoice: handlePayInvoice,
+    createOrder: createNewOrder
   };
 }
+
+// Re-export types for easy importing
+export type { Order, OrderItem, Invoice, Delivery, Customer };

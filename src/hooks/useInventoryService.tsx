@@ -1,15 +1,19 @@
 
 import { useState, useEffect } from 'react';
 import * as inventoryService from '@/services/inventory.service';
-
-// Export the types from the inventory service
-export type { Product, InventoryItem, Warehouse, Movement, TransferRequest } from '@/services/inventory.service';
+import { 
+  Product, 
+  Warehouse, 
+  Movement, 
+  InventoryItem, 
+  TransferRequest 
+} from '@/types/inventory-types';
 
 export function useInventoryService() {
-  const [products, setProducts] = useState<inventoryService.Product[]>([]);
-  const [inventory, setInventory] = useState<inventoryService.InventoryItem[]>([]);
-  const [warehouses, setWarehouses] = useState<inventoryService.Warehouse[]>([]);
-  const [movements, setMovements] = useState<inventoryService.Movement[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [movements, setMovements] = useState<Movement[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,7 +27,7 @@ export function useInventoryService() {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const data = await getProducts();
+      const data = await inventoryService.getProducts();
       setProducts(data);
       setError(null);
     } catch (err) {
@@ -38,7 +42,7 @@ export function useInventoryService() {
     try {
       setLoading(true);
       // Pass undefined to get all inventory
-      const data = await getInventory(undefined);
+      const data = await inventoryService.getInventory(undefined);
       setInventory(data);
       setError(null);
     } catch (err) {
@@ -52,7 +56,7 @@ export function useInventoryService() {
   const loadWarehouses = async () => {
     try {
       setLoading(true);
-      const data = await getWarehouses();
+      const data = await inventoryService.getWarehouses();
       setWarehouses(data);
       setError(null);
     } catch (err) {
@@ -66,7 +70,7 @@ export function useInventoryService() {
   const loadMovements = async () => {
     try {
       setLoading(true);
-      const data = await getMovements();
+      const data = await inventoryService.getMovements();
       setMovements(data);
       setError(null);
     } catch (err) {
@@ -78,7 +82,7 @@ export function useInventoryService() {
   };
 
   // Product Operations
-  const handleAddProduct = async (productData: Omit<inventoryService.Product, "id">) => {
+  const handleAddProduct = async (productData: Omit<Product, "id">) => {
     try {
       setLoading(true);
       await inventoryService.addProduct(productData);
@@ -93,7 +97,7 @@ export function useInventoryService() {
     }
   };
 
-  const handleUpdateProduct = async (id: string, productData: Partial<inventoryService.Product>) => {
+  const handleUpdateProduct = async (id: string, productData: Partial<Product>) => {
     try {
       setLoading(true);
       await inventoryService.updateProduct(id, productData);
@@ -124,10 +128,10 @@ export function useInventoryService() {
   };
 
   // Movement Operations
-  const handleAddMovement = async (movementData: Omit<Movement, 'id'>) => {
+  const handleAddMovement = async (movementData: Omit<Movement, 'id' | 'created_at'>) => {
     try {
       setLoading(true);
-      await addMovement(movementData);
+      await inventoryService.addMovement(movementData);
       await Promise.all([loadMovements(), loadInventory()]);
       return true;
     } catch (err) {
@@ -143,7 +147,7 @@ export function useInventoryService() {
   const handleUpdateInventory = async (id: string, inventoryData: Partial<InventoryItem>) => {
     try {
       setLoading(true);
-      await updateInventory(id, inventoryData);
+      await inventoryService.updateInventory(id, inventoryData);
       await loadInventory();
       return true;
     } catch (err) {
@@ -158,7 +162,7 @@ export function useInventoryService() {
   const handleAddInventory = async (inventoryData: Omit<InventoryItem, 'id'>) => {
     try {
       setLoading(true);
-      await addInventory(inventoryData);
+      await inventoryService.addInventory(inventoryData);
       await loadInventory();
       return true;
     } catch (err) {
@@ -196,15 +200,13 @@ export function useInventoryService() {
         warehouse3: p.warehouse_quantities?.["w3"] || 0
       }));
     },
-    transferProduct: (transfer: {
-      product_id: string;
-      sourceWarehouseId: string;
-      destinationWarehouseId: string;
-      quantity: number;
-    }) => {
+    transferProduct: (transfer: TransferRequest) => {
       console.log("Transferring products:", transfer);
-      // Mock implementation
-      return products.find(p => p.id === transfer.product_id) || products[0];
+      // Delegate to the service
+      return inventoryService.transferProducts(transfer);
     }
   };
 }
+
+// Re-export the types for convenient imports
+export type { Product, Warehouse, Movement, InventoryItem, TransferRequest } from '@/types/inventory-types';
