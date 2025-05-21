@@ -1,4 +1,5 @@
 
+
 // Define and export Product interface with warehouse_quantities
 export interface Product {
   id: string;
@@ -71,3 +72,4 @@ export interface TransferRequest {
   responsible_id?: string;
   notes?: string;
 }
+

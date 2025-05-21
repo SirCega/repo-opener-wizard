@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Product, 
@@ -73,15 +72,14 @@ export const getWarehouses = async (): Promise<WarehouseType[]> => {
 // Get inventory movements history
 export const getMovements = async (): Promise<MovementType[]> => {
   try {
-    // Updated query to specify the exact relationship for warehouse details using foreign key column names
     const { data, error } = await supabase
       .from('inventory_movements')
       .select(`
         *,
         product:product_id (name, sku),
-        warehouse_details:warehouse_id (name, type),
-        source_warehouse:source_warehouse_id (name),
-        destination_warehouse:destination_warehouse_id (name),
+        warehouse:warehouse_id (name, type),
+        source:source_warehouse_id (name),
+        destination:destination_warehouse_id (name),
         responsible:responsible_id (name)
       `)
       .order('created_at', { ascending: false });
@@ -92,14 +90,13 @@ export const getMovements = async (): Promise<MovementType[]> => {
     const transformedData: MovementType[] = data.map(movement => ({
       ...movement,
       warehouse: {
-        name: movement.warehouse_details?.name || 'Almacén desconocido'
+        name: movement.warehouse?.name || 'Unknown Warehouse'
       },
-      // Ensure the fields meet the interface requirements
-      source_warehouse: movement.source_warehouse ? { 
-        name: movement.source_warehouse.name || 'Unknown Source'
+      source_warehouse: movement.source ? { 
+        name: movement.source.name || 'Unknown Source'
       } : undefined,
-      destination_warehouse: movement.destination_warehouse ? { 
-        name: movement.destination_warehouse.name || 'Unknown Destination'
+      destination_warehouse: movement.destination ? { 
+        name: movement.destination.name || 'Unknown Destination'
       } : undefined
     }));
     
