@@ -7,6 +7,8 @@ import { User } from '@/types/auth-types';
  */
 export const getUserById = async (userId: string): Promise<User | null> => {
   try {
+    console.log("Buscando usuario con ID:", userId);
+    
     // First try to get user from the users table
     const { data, error } = await supabase
       .from('users')
@@ -25,6 +27,8 @@ export const getUserById = async (userId: string): Promise<User | null> => {
         return null;
       }
       
+      console.log("Usando metadata de auth:", authUser.user.user_metadata);
+      
       // Use metadata if available
       const userData: User = {
         id: authUser.user.id,
@@ -38,9 +42,11 @@ export const getUserById = async (userId: string): Promise<User | null> => {
     }
     
     if (!data) {
+      console.log("No se encontró usuario en la base de datos");
       return null;
     }
 
+    console.log("Usuario encontrado en la base de datos:", data);
     return {
       id: data.id,
       email: data.email,
@@ -86,6 +92,10 @@ export const getAllUsers = async (currentUserRole?: string): Promise<User[]> => 
       console.error("Error fetching users:", error);
       return [];
     }
+    
+    if (!data) {
+      return [];
+    }
 
     return data.map(user => ({
       id: user.id,
@@ -93,7 +103,7 @@ export const getAllUsers = async (currentUserRole?: string): Promise<User[]> => 
       name: user.name,
       role: user.role,
       address: user.address
-    })) || [];
+    }));
   } catch (error) {
     console.error("Error in getAllUsers:", error);
     return [];
@@ -115,13 +125,17 @@ export const getCustomers = async (): Promise<User[]> => {
       return [];
     }
 
+    if (!data) {
+      return [];
+    }
+
     return data.map(user => ({
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
       address: user.address
-    })) || [];
+    }));
   } catch (error) {
     console.error("Error in getCustomers:", error);
     return [];

@@ -1,26 +1,20 @@
 
 import { useState, useEffect } from 'react';
-import { 
-  getAllOrders, 
-  getAllInvoices,
-  getAllDeliveries,
-  getOrderById,
-  updateOrderStatus,
-  getCustomers
-} from '@/services/order.service';
-import { 
-  Order, 
-  Invoice, 
-  Delivery 
-} from '@/types/order-types';
+import * as orderService from '@/services/order.service';
 import { User } from '@/types/auth-types';
 
+// Re-exporting types
+export type { Order, OrderItem, Invoice, Delivery } from '@/types/order-types';
+
+// Define Customer type
+export type Customer = User;
+
 export function useOrderService() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [customers, setCustomers] = useState<User[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [orders, setOrders] = useState<orderService.Order[]>([]);
+  const [invoices, setInvoices] = useState<orderService.Invoice[]>([]);
+  const [deliveries, setDeliveries] = useState<orderService.Delivery[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,12 +27,10 @@ export function useOrderService() {
   const loadOrders = async () => {
     try {
       setLoading(true);
-      const data = await getAllOrders();
+      const data = await orderService.getAllOrders();
       setOrders(data);
-      setError(null);
-    } catch (err) {
-      setError('Error loading orders');
-      console.error(err);
+    } catch (err: any) {
+      setError(err.message || 'Error loading orders');
     } finally {
       setLoading(false);
     }
@@ -47,12 +39,10 @@ export function useOrderService() {
   const loadInvoices = async () => {
     try {
       setLoading(true);
-      const data = await getAllInvoices();
+      const data = await orderService.getAllInvoices();
       setInvoices(data);
-      setError(null);
-    } catch (err) {
-      setError('Error loading invoices');
-      console.error(err);
+    } catch (err: any) {
+      setError(err.message || 'Error loading invoices');
     } finally {
       setLoading(false);
     }
@@ -61,12 +51,10 @@ export function useOrderService() {
   const loadDeliveries = async () => {
     try {
       setLoading(true);
-      const data = await getAllDeliveries();
+      const data = await orderService.getAllDeliveries();
       setDeliveries(data);
-      setError(null);
-    } catch (err) {
-      setError('Error loading deliveries');
-      console.error(err);
+    } catch (err: any) {
+      setError(err.message || 'Error loading deliveries');
     } finally {
       setLoading(false);
     }
@@ -75,12 +63,10 @@ export function useOrderService() {
   const loadCustomers = async () => {
     try {
       setLoading(true);
-      const data = await getCustomers();
-      setCustomers(data);
-      setError(null);
-    } catch (err) {
-      setError('Error loading customers');
-      console.error(err);
+      const customers = await orderService.getCustomers();
+      setCustomers(customers);
+    } catch (err: any) {
+      setError(err.message || 'Error loading customers');
     } finally {
       setLoading(false);
     }
@@ -89,31 +75,42 @@ export function useOrderService() {
   const getOrder = async (id: string) => {
     try {
       setLoading(true);
-      const order = await getOrderById(id);
-      setError(null);
-      return order;
-    } catch (err) {
-      setError('Error loading order details');
-      console.error(err);
+      return await orderService.getOrderById(id);
+    } catch (err: any) {
+      setError(err.message || `Error getting order ${id}`);
       return null;
     } finally {
       setLoading(false);
     }
   };
 
-  const updateStatus = async (orderId: string, status: string, deliveryPersonId?: number, deliveryPersonName?: string) => {
+  const updateOrder = async (
+    orderId: string,
+    status: string,
+    deliveryPersonId?: number,
+    deliveryPersonName?: string
+  ) => {
     try {
       setLoading(true);
-      const success = await updateOrderStatus(orderId, status, deliveryPersonId, deliveryPersonName);
-      if (success) {
-        await loadOrders();
-      } else {
-        setError('Failed to update order status');
-      }
-      return success;
-    } catch (err) {
-      setError('Error updating order status');
-      console.error(err);
+      await orderService.updateOrderStatus(orderId, status, deliveryPersonId, deliveryPersonName);
+      await loadOrders();
+      return true;
+    } catch (err: any) {
+      setError(err.message || 'Error updating order');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePayInvoice = async (invoiceId: number) => {
+    try {
+      setLoading(true);
+      orderService.payInvoice(invoiceId);
+      await loadInvoices();
+      return true;
+    } catch (err: any) {
+      setError(err.message || 'Error paying invoice');
       return false;
     } finally {
       setLoading(false);
@@ -132,6 +129,7 @@ export function useOrderService() {
     loadDeliveries,
     loadCustomers,
     getOrder,
-    updateStatus
+    updateOrder,
+    payInvoice: handlePayInvoice,
   };
 }

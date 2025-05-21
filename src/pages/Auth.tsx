@@ -64,6 +64,8 @@ const Auth: React.FC = () => {
     });
   };
 
+  console.log("Auth component rendering, user:", user?.id, "session:", session?.user?.id);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md">
