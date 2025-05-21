@@ -22,17 +22,40 @@ const Auth: React.FC = () => {
   const [registerName, setRegisterName] = useState('');
   const [registerAddress, setRegisterAddress] = useState('');
   
-  const { login, registerClient, isLoading } = useAuth();
+  const { login, registerClient, isLoading, user, session } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Si ya estamos autenticados, redirigir al dashboard
+  useEffect(() => {
+    if (user && session) {
+      navigate('/dashboard');
+    }
+  }, [user, session, navigate]);
+
   const handleLoginWithEmail = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) {
+      toast({
+        title: "Campos incompletos",
+        description: "Por favor ingresa tu correo y contraseña",
+        variant: "destructive",
+      });
+      return;
+    }
     await login(email, password);
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!registerName || !registerEmail || !registerPassword || !registerAddress) {
+      toast({
+        title: "Campos incompletos",
+        description: "Por favor completa todos los campos del formulario",
+        variant: "destructive",
+      });
+      return;
+    }
     await registerClient({
       email: registerEmail,
       password: registerPassword,

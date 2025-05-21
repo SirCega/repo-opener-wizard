@@ -36,6 +36,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const userData = await userService.getUserById(currentSession.user.id);
               if (userData) {
                 setUser(userData);
+                console.log("User data loaded:", userData);
+              } else {
+                console.log("No se pudo obtener datos de usuario desde la BD");
               }
             } catch (error) {
               console.error("Error fetching user data in auth change:", error);
@@ -51,6 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const checkExistingSession = async () => {
       try {
         const { session: currentSession, user: userData } = await authService.getCurrentSession();
+        console.log("Existing session check:", currentSession ? "Session active" : "No active session", userData);
         setSession(currentSession);
         setSupabaseUser(currentSession?.user ?? null);
         setUser(userData);
@@ -82,18 +86,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userData = await userService.getUserById(authUser.id);
       
       if (!userData) {
-        console.error("No se pudo obtener datos del usuario");
-        throw new Error("Error al obtener datos del usuario");
+        console.warn("No se pudo obtener datos del usuario desde la base de datos, usaremos los metadatos");
+        // Si no hay datos en la tabla users, crear un objeto de usuario desde los metadatos de auth
+        const basicUser: User = {
+          id: authUser.id,
+          email: authUser.email || '',
+          name: authUser.user_metadata?.name || '',
+          role: authUser.user_metadata?.role || 'cliente',
+          address: authUser.user_metadata?.address || ''
+        };
+        setUser(basicUser);
+      } else {
+        setUser(userData);
       }
 
-      console.log("Datos de usuario obtenidos:", userData);
-
       // Actualizar último login
-      await userService.updateLastLogin(userData.id);
+      await userService.updateLastLogin(authUser.id);
 
       toast({
         title: "Bienvenido",
-        description: `Hola, ${userData.name}`,
+        description: `Inicio de sesión exitoso`,
       });
       
       navigate("/dashboard");
@@ -101,10 +113,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("Login error:", error);
       let errorMessage = "Error de autenticación";
       
-      if (error.message.includes("Invalid login credentials")) {
+      if (error.message && error.message.includes("Invalid login credentials")) {
         errorMessage = "Credenciales inválidas. Verifica tu correo y contraseña.";
-      } else if (error.message.includes("Email not confirmed")) {
+      } else if (error.message && error.message.includes("Email not confirmed")) {
         errorMessage = "Correo electrónico no confirmado. Revisa tu bandeja de entrada.";
+      } else {
+        errorMessage = `Error: ${error.message || "Desconocido"}`;
       }
       
       toast({
@@ -162,8 +176,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("Registration error:", error);
       
       let errorMessage = "Error de registro";
-      if (error.message.includes("User already registered")) {
+      if (error.message && error.message.includes("User already registered")) {
         errorMessage = "Este correo electrónico ya está registrado.";
+      } else {
+        errorMessage = `Error: ${error.message || "Desconocido"}`;
       }
       
       toast({

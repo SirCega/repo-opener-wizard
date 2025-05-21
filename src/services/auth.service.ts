@@ -60,16 +60,19 @@ export const registerClient = async (userData: {
     throw new Error("Error al crear el usuario");
   }
 
-  // Create user profile (without storing the password)
+  // Create user profile in the users table
+  const userProfile = {
+    id: data.user.id,
+    email: userData.email,
+    name: userData.name,
+    role: 'cliente',
+    address: userData.address,
+    password: '' // Placeholder as auth is handled by Supabase Auth
+  };
+
   const { error: profileError } = await supabase
     .from('users')
-    .insert([{
-      id: data.user.id,
-      email: userData.email,
-      name: userData.name,
-      role: 'cliente',
-      address: userData.address
-    }]);
+    .insert([userProfile]);
 
   if (profileError) {
     console.error("Error al crear el perfil:", profileError);

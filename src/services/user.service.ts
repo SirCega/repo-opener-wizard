@@ -7,33 +7,7 @@ import { User } from '@/types/auth-types';
  */
 export const getUserById = async (userId: string): Promise<User | null> => {
   try {
-    // First try to get user from auth.users (more reliable method)
-    const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userId);
-    
-    if (authUser?.user) {
-      const { data: profileData, error: profileError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
-      if (profileError) {
-        console.error("Error fetching profile data:", profileError);
-      }
-      
-      // Combine auth user with profile data if available
-      const userData: User = {
-        id: authUser.user.id,
-        email: authUser.user.email || '',
-        name: profileData?.name || authUser.user.user_metadata?.name || '',
-        role: profileData?.role || authUser.user.user_metadata?.role || 'cliente',
-        address: profileData?.address || authUser.user.user_metadata?.address || ''
-      };
-      
-      return userData;
-    }
-    
-    // Fallback to the profile table
+    // First try to get user from the users table
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -42,7 +16,25 @@ export const getUserById = async (userId: string): Promise<User | null> => {
       
     if (error) {
       console.error("Error fetching user data:", error);
-      return null;
+      
+      // Fallback to auth metadata
+      const { data: authUser, error: authError } = await supabase.auth.getUser(userId);
+      
+      if (authError || !authUser) {
+        console.error("Error fetching auth user data:", authError);
+        return null;
+      }
+      
+      // Use metadata if available
+      const userData: User = {
+        id: authUser.user.id,
+        email: authUser.user.email || '',
+        name: authUser.user.user_metadata?.name || '',
+        role: authUser.user.user_metadata?.role || 'cliente',
+        address: authUser.user.user_metadata?.address || ''
+      };
+      
+      return userData;
     }
     
     if (!data) {
@@ -81,6 +73,7 @@ export const updateLastLogin = async (userId: string): Promise<void> => {
  */
 export const getAllUsers = async (currentUserRole?: string): Promise<User[]> => {
   if (currentUserRole !== 'admin') {
+    console.log("Access denied: User is not an admin");
     return [];
   }
 
