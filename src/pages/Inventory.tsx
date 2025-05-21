@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -38,6 +39,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Product, TransferRequest } from '@/types/inventory-types';
 import { getProducts, transferProducts } from '@/services/inventory.service';
+// Fix the import to use default import instead of named import
 import MovementHistory from '@/components/inventory/MovementHistory';
 
 const Inventory: React.FC = () => {

@@ -47,7 +47,6 @@ const MovementHistory: React.FC<MovementHistoryProps> = ({ warehouseId }) => {
     }
   }, [warehouseId]);
 
-  // Dentro del componente, asegúrate de usar la función addMovement correctamente
   const handleAddMovement = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -93,7 +92,6 @@ const MovementHistory: React.FC<MovementHistoryProps> = ({ warehouseId }) => {
     <div>
       <h2 className="text-2xl font-bold mb-4">Historial de Movimientos</h2>
 
-      {/* Formulario para agregar movimientos */}
       <form onSubmit={handleAddMovement} className="mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -164,7 +162,6 @@ const MovementHistory: React.FC<MovementHistoryProps> = ({ warehouseId }) => {
         <Button type="submit" className="mt-4">Agregar Movimiento</Button>
       </form>
 
-      {/* Tabla de historial de movimientos */}
       {loading && <p>Cargando movimientos...</p>}
       {error && <p className="text-red-500">Error: {error}</p>}
       <div className="overflow-x-auto">
