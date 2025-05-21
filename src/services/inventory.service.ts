@@ -73,32 +73,51 @@ export const getWarehouses = async (): Promise<WarehouseType[]> => {
 // Get inventory movements history
 export const getMovements = async (): Promise<MovementType[]> => {
   try {
-    // Use explicit aliases in the query to avoid ambiguity
+    // Realizamos la consulta con nombres claros y evitando ambigüedades
     const { data, error } = await supabase
       .from('inventory_movements')
       .select(`
-        *,
+        id,
+        type,
+        product_id,
+        warehouse_id,
+        quantity,
+        source_warehouse_id,
+        destination_warehouse_id,
+        responsible_id,
+        created_at,
+        notes,
         product:product_id (name, sku),
-        wh:warehouse_id (name, type),
-        src:source_warehouse_id (name),
-        dest:destination_warehouse_id (name),
         responsible:responsible_id (name)
       `)
       .order('created_at', { ascending: false });
     
     if (error) throw error;
     
-    // Transform the data to match the MovementType interface
+    // Obtenemos todas las bodegas para usarlas en la transformación
+    const { data: warehouses, error: warehousesError } = await supabase
+      .from('warehouses')
+      .select('id, name');
+      
+    if (warehousesError) throw warehousesError;
+    
+    // Creamos un mapa de ID de bodega a nombre para facilitar la búsqueda
+    const warehouseMap: {[key: string]: string} = {};
+    warehouses.forEach(warehouse => {
+      warehouseMap[warehouse.id] = warehouse.name;
+    });
+    
+    // Transformamos los datos para ajustarse a la interfaz MovementType
     const transformedData: MovementType[] = data.map(movement => ({
       ...movement,
       warehouse: {
-        name: movement.wh?.name || 'Unknown Warehouse'
+        name: warehouseMap[movement.warehouse_id] || 'Bodega Desconocida'
       },
-      source_warehouse: movement.src ? { 
-        name: movement.src.name || 'Unknown Source'
+      source_warehouse: movement.source_warehouse_id ? { 
+        name: warehouseMap[movement.source_warehouse_id] || 'Origen Desconocido'
       } : undefined,
-      destination_warehouse: movement.dest ? { 
-        name: movement.dest.name || 'Unknown Destination'
+      destination_warehouse: movement.destination_warehouse_id ? { 
+        name: warehouseMap[movement.destination_warehouse_id] || 'Destino Desconocido'
       } : undefined
     }));
     
