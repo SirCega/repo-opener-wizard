@@ -217,5 +217,5 @@ export function useInventoryService() {
   };
 }
 
-// Re-export the types for convenient imports
+// Export the types for convenient imports
 export type { Product, Warehouse, Movement, InventoryItem, TransferRequest } from '@/types/inventory-types';
