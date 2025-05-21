@@ -85,6 +85,9 @@ export const getProducts = async (): Promise<Product[]> => {
   ];
 };
 
+// Alias for getProducts to maintain compatibility
+export const getAllProducts = getProducts;
+
 // Get all warehouses
 export const getWarehouses = async (): Promise<Warehouse[]> => {
   // This would be replaced with an actual API call
@@ -185,7 +188,7 @@ export const getMovements = async (): Promise<Movement[]> => {
 };
 
 // Get inventory for a specific warehouse
-export const getInventory = async (warehouseId: string): Promise<InventoryItem[]> => {
+export const getInventory = async (warehouseId?: string): Promise<InventoryItem[]> => {
   // This would be replaced with an actual API call
   return [];
 };
@@ -200,6 +203,21 @@ export const addProduct = async (product: Omit<Product, "id">): Promise<Product>
   };
 };
 
+// Update a product
+export const updateProduct = async (id: string, product: Partial<Product>): Promise<Product> => {
+  console.log("Updating product:", id, product);
+  return {
+    id,
+    ...product as Product
+  };
+};
+
+// Delete a product
+export const deleteProduct = async (id: string): Promise<boolean> => {
+  console.log("Deleting product:", id);
+  return true;
+};
+
 // Add inventory movement
 export const addMovement = async (movement: Omit<Movement, "id" | "created_at">): Promise<Movement> => {
   // This would be replaced with an actual API call
@@ -208,6 +226,24 @@ export const addMovement = async (movement: Omit<Movement, "id" | "created_at">)
     id: Math.random().toString(36).substring(2, 11),
     created_at: new Date().toISOString(),
     ...movement
+  };
+};
+
+// Add inventory
+export const addInventory = async (inventory: Omit<InventoryItem, "id">): Promise<InventoryItem> => {
+  console.log("Adding inventory:", inventory);
+  return {
+    id: Math.random().toString(36).substring(2, 11),
+    ...inventory
+  };
+};
+
+// Update inventory
+export const updateInventory = async (id: string, inventory: Partial<InventoryItem>): Promise<InventoryItem> => {
+  console.log("Updating inventory:", id, inventory);
+  return {
+    id,
+    ...inventory as InventoryItem
   };
 };
 
@@ -234,3 +270,6 @@ export const updateStock = async (productId: string, warehouseId: string, quanti
   // This would be replaced with an actual API call
   console.log(`Updating stock for product ${productId} in warehouse ${warehouseId}: ${quantity}`);
 };
+
+// Re-export the types for better imports
+export type { Product, Warehouse, Movement, InventoryItem, TransferRequest } from '@/types/inventory-types';

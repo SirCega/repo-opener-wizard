@@ -10,15 +10,13 @@ import {
   deleteProduct,
   addMovement,
   addInventory,
-  updateInventory
-} from '@/services/inventory.service';
-import { 
+  updateInventory,
   Product,
   InventoryItem,
   Warehouse,
   Movement,
   TransferRequest
-} from '@/types/inventory-types';
+} from '@/services/inventory.service';
 
 export function useInventoryService() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -52,7 +50,8 @@ export function useInventoryService() {
   const loadInventory = async () => {
     try {
       setLoading(true);
-      const data = await getInventory();
+      // Pass undefined to get all inventory
+      const data = await getInventory(undefined);
       setInventory(data);
       setError(null);
     } catch (err) {
@@ -204,4 +203,4 @@ export function useInventoryService() {
   };
 }
 
-export type { Product, InventoryItem, Warehouse, Movement, TransferRequest } from '@/types/inventory-types';
+export type { Product, InventoryItem, Warehouse, Movement, TransferRequest };

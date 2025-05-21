@@ -192,3 +192,9 @@ export const getCustomers = async (): Promise<User[]> => {
     { id: "user3", name: "Carlos Rodríguez", email: "carlos@example.com", role: "cliente" }
   ];
 };
+
+// Define Customer type for better compatibility
+export type Customer = User;
+
+// Export types from order-types
+export type { Order, OrderItem, Invoice, Delivery } from '@/types/order-types';
