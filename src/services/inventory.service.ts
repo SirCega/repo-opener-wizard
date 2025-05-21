@@ -1,8 +1,8 @@
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Product, 
-  Warehouse, 
-  Movement, 
+  Warehouse as WarehouseType, 
+  Movement as MovementType, 
   InventoryItem, 
   TransferRequest 
 } from '@/types/inventory-types';
@@ -55,7 +55,7 @@ export const getProducts = async (): Promise<Product[]> => {
 export const getAllProducts = getProducts;
 
 // Get all warehouses
-export const getWarehouses = async (): Promise<Warehouse[]> => {
+export const getWarehouses = async (): Promise<WarehouseType[]> => {
   try {
     const { data, error } = await supabase
       .from('warehouses')
@@ -69,45 +69,15 @@ export const getWarehouses = async (): Promise<Warehouse[]> => {
   }
 };
 
-// Make sure we have a proper warehouse interface in the Movement type
-export interface Warehouse {
-  name: string;
-  [key: string]: any; // Allow additional properties
-}
-
-export interface Movement {
-  id: string;
-  product_id: string;
-  warehouse_id: string;
-  quantity: number;
-  type: string;
-  notes: string;
-  responsible_id: string;
-  created_at: string;
-  product?: {
-    name: string;
-    sku: string;
-  };
-  warehouse: Warehouse; // Use the warehouse interface
-  responsible?: {
-    name: string;
-  };
-  source_warehouse_id?: string;
-  destination_warehouse_id?: string;
-  source_warehouse?: Warehouse;
-  destination_warehouse?: Warehouse;
-  [key: string]: any; // Allow additional properties for flexibility
-}
-
 // Get inventory movements history
-export const getMovements = async (): Promise<Movement[]> => {
+export const getMovements = async (): Promise<MovementType[]> => {
   try {
     const { data, error } = await supabase
       .from('inventory_movements')
       .select(`
         *,
         product:product_id (name, sku),
-        warehouse:warehouse_id (name, type),
+        warehouse_details:warehouse_id (name, type),
         source_warehouse:source_warehouse_id (name),
         destination_warehouse:destination_warehouse_id (name),
         responsible:responsible_id (name)
@@ -116,10 +86,12 @@ export const getMovements = async (): Promise<Movement[]> => {
     
     if (error) throw error;
     
-    // Ensure warehouse has a name property even if there's an error
+    // Transform the data to match the MovementType interface
     return data.map(movement => ({
       ...movement,
-      warehouse: movement.warehouse || { name: 'Almacén desconocido' },
+      warehouse: {
+        name: movement.warehouse_details?.name || 'Almacén desconocido'
+      },
       source_warehouse: movement.source_warehouse || (movement.source_warehouse_id ? { name: 'Almacén desconocido' } : undefined),
       destination_warehouse: movement.destination_warehouse || (movement.destination_warehouse_id ? { name: 'Almacén desconocido' } : undefined)
     }));
@@ -340,7 +312,7 @@ export const deleteProduct = async (id: string): Promise<boolean> => {
 };
 
 // Add inventory movement
-export const addMovement = async (movement: Omit<Movement, "id" | "created_at">): Promise<Movement> => {
+export const addMovement = async (movement: Omit<MovementType, "id" | "created_at">): Promise<MovementType> => {
   try {
     const { data, error } = await supabase
       .from('inventory_movements')
@@ -460,7 +432,7 @@ export const updateInventory = async (id: string, inventory: Partial<InventoryIt
 };
 
 // Transfer products between warehouses
-export const transferProducts = async (transfer: TransferRequest): Promise<Movement> => {
+export const transferProducts = async (transfer: TransferRequest): Promise<MovementType> => {
   try {
     // Create a movement for this transfer
     const movement = await addMovement({

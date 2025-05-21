@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -45,7 +46,7 @@ const Products: React.FC = () => {
   const [currentCategory, setCurrentCategory] = useState('all');
   const [sortField, setSortField] = useState('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [productsData, setProductsData] = useState<Product[]>([]); // Nuevo estado para productos
+  const [productsData, setProductsData] = useState<Product[]>([]); 
   const [isEditProductDialogOpen, setIsEditProductDialogOpen] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const { toast } = useToast();
@@ -88,6 +89,10 @@ const Products: React.FC = () => {
     if (currentProduct) {
       inventoryService.updateProduct(currentProduct);
       setIsEditProductDialogOpen(false);
+      toast({
+        title: "Producto actualizado",
+        description: "El producto ha sido actualizado exitosamente"
+      });
     }
   };
   
@@ -128,18 +133,10 @@ const Products: React.FC = () => {
   // Get all unique categories from actual data
   const categories = Array.from(new Set(productsData.map(item => item.category)));
 
-  const handleAddProduct = (formData, resetForm) => {
+  const handleAddProduct = (formData: any, resetForm: () => void) => {
     // Implement the logic to add a new product
     // Example: inventoryService.addProduct(formData);
     // resetForm();
-  };
-
-  const handleEditProduct = (product) => {
-    setEditingProduct({
-      ...product,
-      box_qty: product.box_qty // Ensure we use the correct property name
-    });
-    setIsEditProductDialogOpen(true);
   };
 
   return (
@@ -439,12 +436,12 @@ const Products: React.FC = () => {
                 
                 <div className="grid grid-cols-3 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="edit-boxQty">Unid. por Caja</Label>
+                    <Label htmlFor="edit-box_qty">Unid. por Caja</Label>
                     <Input 
-                      id="edit-boxQty" 
+                      id="edit-box_qty" 
                       type="number"
-                      value={currentProduct.boxQty}
-                      onChange={(e) => setCurrentProduct({...currentProduct, boxQty: parseInt(e.target.value)})}
+                      value={currentProduct.box_qty}
+                      onChange={(e) => setCurrentProduct({...currentProduct, box_qty: parseInt(e.target.value)})}
                     />
                   </div>
                   <div className="grid gap-2">
