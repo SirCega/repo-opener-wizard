@@ -48,7 +48,7 @@ export interface Movement {
     name: string;
     sku: string;
   };
-  warehouse: {
+  warehouse?: {
     name: string;
   };
   source_warehouse?: {

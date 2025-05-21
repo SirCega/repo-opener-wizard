@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -87,7 +86,7 @@ const Products: React.FC = () => {
 
   const handleUpdateProduct = () => {
     if (currentProduct) {
-      inventoryService.updateProduct(currentProduct);
+      inventoryService.updateProduct(currentProduct.id, currentProduct);
       setIsEditProductDialogOpen(false);
       toast({
         title: "Producto actualizado",
@@ -137,6 +136,20 @@ const Products: React.FC = () => {
     // Implement the logic to add a new product
     // Example: inventoryService.addProduct(formData);
     // resetForm();
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    if (currentProduct) {
+      const updatedValue = name === 'box_qty' || name === 'threshold' || 
+                           name === 'price' || name === 'mainWarehouse' ? 
+                           parseFloat(value) : value;
+      
+      setCurrentProduct({
+        ...currentProduct,
+        [name]: updatedValue
+      });
+    }
   };
 
   return (

@@ -66,13 +66,20 @@ const MovementHistory: React.FC<MovementHistoryProps> = ({ warehouseId, products
     }
 
     try {
+      // Find the selected warehouse to pass its name
+      const selectedWarehouseObject = warehouses.find(w => w.id === selectedWarehouse);
+      
       const newMovement = {
         product_id: selectedProduct,
         warehouse_id: selectedWarehouse,
         type: type as 'entrada' | 'salida' | 'transferencia' | 'ajuste',
         quantity: parseInt(quantity),
         responsible_id: userId,
-        notes
+        notes,
+        // Add the warehouse object with the name property to satisfy TypeScript
+        warehouse: {
+          name: selectedWarehouseObject?.name || 'Unknown Warehouse'
+        }
       };
       
       await addMovement(newMovement);
