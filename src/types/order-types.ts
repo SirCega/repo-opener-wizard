@@ -28,7 +28,7 @@ export interface Order {
   deliveryPersonId?: string;
   deliveryPersonName?: string;
   notes?: string;
-  warehouseSource?: string; // Agregar campo faltante
+  warehouseSource?: string;
 }
 
 export interface Invoice {

@@ -21,7 +21,7 @@ export function useOrderService() {
   const loadOrders = async () => {
     try {
       setLoading(true);
-      const data = await orderService.getAllOrders();
+      const data = await orderService.getOrders();
       setOrders(data);
     } catch (err: any) {
       setError(err.message || 'Error loading orders');
@@ -33,7 +33,7 @@ export function useOrderService() {
   const loadInvoices = async () => {
     try {
       setLoading(true);
-      const data = await orderService.getAllInvoices();
+      const data = await orderService.getInvoices();
       setInvoices(data);
     } catch (err: any) {
       setError(err.message || 'Error loading invoices');
@@ -45,7 +45,7 @@ export function useOrderService() {
   const loadDeliveries = async () => {
     try {
       setLoading(true);
-      const data = await orderService.getAllDeliveries();
+      const data = await orderService.getDeliveries();
       setDeliveries(data);
     } catch (err: any) {
       setError(err.message || 'Error loading deliveries');
@@ -80,8 +80,8 @@ export function useOrderService() {
 
   const updateOrder = async (
     orderId: string,
-    status: string,
-    deliveryPersonId?: number,
+    status: 'preparacion' | 'enviado' | 'entregado' | 'cancelado',
+    deliveryPersonId?: string,
     deliveryPersonName?: string
   ) => {
     try {
@@ -139,7 +139,11 @@ export function useOrderService() {
     getOrder,
     updateOrder,
     payInvoice: handlePayInvoice,
-    createOrder: createNewOrder
+    createOrder: createNewOrder,
+    // Agregar alias para mantener compatibilidad con código existente
+    getAllOrders: loadOrders,
+    getAllInvoices: loadInvoices,
+    getAllDeliveries: loadDeliveries
   };
 }
 

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -49,11 +48,11 @@ import { useOrderService } from '@/hooks/useOrderService';
 
 // Datos de domiciliarios
 const deliveryPeople = [
-  { id: 1, name: "Luis Torres", phone: "555-1234", status: "disponible", deliveries: 34, rating: 4.7 },
-  { id: 2, name: "Ana García", phone: "555-5678", status: "disponible", deliveries: 27, rating: 4.9 },
-  { id: 3, name: "Carlos López", phone: "555-9012", status: "ocupado", deliveries: 42, rating: 4.5 },
-  { id: 4, name: "María Rodríguez", phone: "555-3456", status: "ocupado", deliveries: 18, rating: 4.8 },
-  { id: 5, name: "Javier Sánchez", phone: "555-7890", status: "disponible", deliveries: 22, rating: 4.6 },
+  { id: "1", name: "Luis Torres", phone: "555-1234", status: "disponible", deliveries: 34, rating: 4.7 },
+  { id: "2", name: "Ana García", phone: "555-5678", status: "disponible", deliveries: 27, rating: 4.9 },
+  { id: "3", name: "Carlos López", phone: "555-9012", status: "ocupado", deliveries: 42, rating: 4.5 },
+  { id: "4", name: "María Rodríguez", phone: "555-3456", status: "ocupado", deliveries: 18, rating: 4.8 },
+  { id: "5", name: "Javier Sánchez", phone: "555-7890", status: "disponible", deliveries: 22, rating: 4.6 },
 ];
 
 const Deliveries: React.FC = () => {
@@ -64,7 +63,7 @@ const Deliveries: React.FC = () => {
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const [isAssignDeliveryDialogOpen, setIsAssignDeliveryDialogOpen] = useState(false);
   const [isViewDeliveryDialogOpen, setIsViewDeliveryDialogOpen] = useState(false);
-  const [selectedDeliveryPerson, setSelectedDeliveryPerson] = useState<number | null>(null);
+  const [selectedDeliveryPerson, setSelectedDeliveryPerson] = useState<string | null>(null);
   const { toast } = useToast();
   const orderService = useOrderService();
   
@@ -72,8 +71,8 @@ const Deliveries: React.FC = () => {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const loadedOrders = await orderService.getAllOrders();
-        setOrders(loadedOrders);
+        await orderService.loadOrders();
+        setOrders(orderService.orders);
       } catch (error) {
         console.error("Error loading orders:", error);
         toast({
@@ -85,7 +84,7 @@ const Deliveries: React.FC = () => {
     };
     
     fetchOrders();
-  }, []);
+  }, [orderService.orders.length]);
   
   // Pedidos que son entregas (preparados o enviados)
   const pendingDeliveries = orders.filter(order => 
@@ -121,13 +120,13 @@ const Deliveries: React.FC = () => {
     }
     
     return filteredOrders.filter(order => {
-      const customerString = typeof order.customer === 'string' 
+      const customerName = typeof order.customer === 'string' 
         ? order.customer 
-        : order.customer?.name || '';
+        : '';
       
       return (
         (searchQuery === '' || 
-          customerString.toLowerCase().includes(searchQuery.toLowerCase()) || 
+          customerName.toLowerCase().includes(searchQuery.toLowerCase()) || 
           order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())) &&
         (statusFilter === 'all' || order.status === statusFilter)
       );
@@ -164,8 +163,8 @@ const Deliveries: React.FC = () => {
       );
       
       // Actualizar la lista de pedidos con datos frescos
-      const updatedOrders = await orderService.getAllOrders();
-      setOrders(updatedOrders);
+      await orderService.loadOrders();
+      setOrders(orderService.orders);
       
       toast({
         title: "Domiciliario asignado",
@@ -202,8 +201,8 @@ const Deliveries: React.FC = () => {
       );
       
       // Actualizar la lista de pedidos con datos frescos
-      const updatedOrders = await orderService.getAllOrders();
-      setOrders(updatedOrders);
+      await orderService.loadOrders();
+      setOrders(orderService.orders);
       
       toast({
         title: "Entrega completada",
@@ -220,8 +219,6 @@ const Deliveries: React.FC = () => {
   // Mostrar badge según estado
   const getStatusBadge = (status: Order['status']) => {
     switch (status) {
-      case 'pendiente':
-        return <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">Pendiente</Badge>;
       case 'preparacion':
         return <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200">En Preparación</Badge>;
       case 'enviado':
@@ -239,9 +236,6 @@ const Deliveries: React.FC = () => {
   const renderCustomerName = (customer: Order['customer']) => {
     if (typeof customer === 'string') {
       return customer;
-    }
-    if (customer && typeof customer === 'object' && 'name' in customer) {
-      return customer.name;
     }
     return "Cliente desconocido";
   };
@@ -466,8 +460,8 @@ const Deliveries: React.FC = () => {
                   <div className="space-y-4">
                     <Label htmlFor="delivery-person">Seleccionar Domiciliario</Label>
                     <Select 
-                      value={selectedDeliveryPerson?.toString() || ''} 
-                      onValueChange={(val) => setSelectedDeliveryPerson(parseInt(val))}
+                      value={selectedDeliveryPerson || ''} 
+                      onValueChange={(val) => setSelectedDeliveryPerson(val)}
                     >
                       <SelectTrigger id="delivery-person">
                         <SelectValue placeholder="Seleccionar domiciliario" />
@@ -476,7 +470,7 @@ const Deliveries: React.FC = () => {
                         {deliveryPeople
                           .filter(person => person.status === 'disponible')
                           .map(person => (
-                            <SelectItem key={person.id} value={person.id.toString()}>
+                            <SelectItem key={person.id} value={person.id}>
                               {person.name} ({person.rating} ★)
                             </SelectItem>
                           ))}
@@ -602,7 +596,7 @@ const Deliveries: React.FC = () => {
                           {currentOrder.items?.map((item, index) => (
                             <li key={index} className="text-sm flex justify-between">
                               <span>{item.quantity}x {item.productName}</span>
-                              <span className="font-medium">${(item.price * item.quantity).toFixed(2)}</span>
+                              <span className="font-medium">${((item.price || 0) * item.quantity).toFixed(2)}</span>
                             </li>
                           ))}
                         </ul>
@@ -635,19 +629,19 @@ const Deliveries: React.FC = () => {
                             </div>
                           </div>
                           
-                          <div className={`flex items-center ${currentOrder.status === 'pendiente' ? 'opacity-50' : ''}`}>
-                            <div className={`h-7 w-7 rounded-full mr-2 flex items-center justify-center ${currentOrder.status !== 'pendiente' ? 'bg-amber-100 text-amber-700' : 'bg-muted text-muted-foreground'}`}>
+                          <div className={`flex items-center ${currentOrder.status === 'cancelado' ? 'opacity-50' : ''}`}>
+                            <div className={`h-7 w-7 rounded-full mr-2 flex items-center justify-center ${currentOrder.status !== 'cancelado' ? 'bg-amber-100 text-amber-700' : 'bg-muted text-muted-foreground'}`}>
                               <Package className="h-4 w-4" />
                             </div>
                             <div>
                               <p className="text-sm font-medium">En preparación</p>
                               <p className="text-xs text-muted-foreground">
-                                {currentOrder.status !== 'pendiente' ? 'Completado' : 'Pendiente'}
+                                {currentOrder.status !== 'cancelado' ? 'Completado' : 'Cancelado'}
                               </p>
                             </div>
                           </div>
                           
-                          <div className={`flex items-center ${currentOrder.status === 'pendiente' || currentOrder.status === 'preparacion' ? 'opacity-50' : ''}`}>
+                          <div className={`flex items-center ${currentOrder.status === 'preparacion' || currentOrder.status === 'cancelado' ? 'opacity-50' : ''}`}>
                             <div className={`h-7 w-7 rounded-full mr-2 flex items-center justify-center ${currentOrder.status === 'enviado' || currentOrder.status === 'entregado' ? 'bg-purple-100 text-purple-700' : 'bg-muted text-muted-foreground'}`}>
                               <Truck className="h-4 w-4" />
                             </div>
