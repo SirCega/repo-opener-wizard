@@ -1,6 +1,4 @@
 
-import { User } from "./auth-types";
-
 export interface OrderItem {
   id: string;
   order_id: string;
@@ -9,26 +7,28 @@ export interface OrderItem {
   unit_price: number;
   subtotal: number;
   warehouse_id: string;
-  productName: string;
-  price: number;
+  productName?: string;
+  price?: number;
 }
 
 export interface Order {
   id: string;
   orderNumber: string;
-  customer: string | User;
+  customer: string;
   customerId: string;
   date: string;
-  status: 'pendiente' | 'preparacion' | 'enviado' | 'entregado' | 'cancelado';
+  status: 'preparacion' | 'enviado' | 'entregado' | 'cancelado';
   address: string;
   total: number;
-  deliveryPersonId?: number;
-  deliveryPersonName?: string;
   customer_id: string;
   shipping_address: string;
   total_amount: number;
-  payment_status: string;
-  items?: OrderItem[];
+  payment_status: 'pendiente' | 'pagado' | 'cancelado';
+  items: OrderItem[];
+  deliveryPersonId?: string;
+  deliveryPersonName?: string;
+  notes?: string;
+  warehouseSource?: string; // Agregar campo faltante
 }
 
 export interface Invoice {
@@ -39,7 +39,7 @@ export interface Invoice {
   due_date: string;
   total_amount: number;
   tax_amount: number;
-  status: string;
+  status: 'pendiente' | 'pagada' | 'cancelada';
   orderNumber: string;
   customerName: string;
   customerAddress: string;
@@ -47,17 +47,28 @@ export interface Invoice {
   subtotal: number;
   tax: number;
   total: number;
-  items?: OrderItem[];
+  items: OrderItem[];
 }
 
 export interface Delivery {
   id: string;
-  order_id: string;
-  delivery_person_id: string;
+  orderId: string;
+  orderNumber: string;
+  customer: string;
+  address: string;
   status: string;
-  assigned_at: string;
-  estimated_delivery?: string;
-  actual_delivery?: string;
+  deliveryPersonId: string;
+  deliveryPersonName: string;
+  assignedAt?: string;
+  estimatedDelivery?: string;
+  actualDelivery?: string;
+  notes: string;
 }
 
-export type Customer = User;
+export interface Customer {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  address?: string;
+}

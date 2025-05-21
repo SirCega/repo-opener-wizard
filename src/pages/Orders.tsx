@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -47,7 +46,7 @@ import {
   getOrders, 
   useOrderService 
 } from '@/services/order.service';
-import { useInventoryService } from '@/services/inventory.service';
+import { useInventoryService } from '@/hooks/useInventoryService';
 import { useAuth } from '@/hooks/useAuth';
 
 const Orders: React.FC = () => {
