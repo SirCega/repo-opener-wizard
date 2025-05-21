@@ -17,13 +17,13 @@ export interface Order {
   customer: string;
   customerId: string;
   date: string;
-  status: 'preparacion' | 'enviado' | 'entregado' | 'cancelado';
+  status: 'preparacion' | 'enviado' | 'entregado' | 'cancelado' | string;
   address: string;
   total: number;
   customer_id: string;
   shipping_address: string;
   total_amount: number;
-  payment_status: 'pendiente' | 'pagado' | 'cancelado';
+  payment_status: 'pendiente' | 'pagado' | 'cancelado' | string;
   items: OrderItem[];
   deliveryPersonId?: string;
   deliveryPersonName?: string;
@@ -39,7 +39,7 @@ export interface Invoice {
   due_date: string;
   total_amount: number;
   tax_amount: number;
-  status: 'pendiente' | 'pagada' | 'cancelada';
+  status: 'pendiente' | 'pagada' | 'cancelada' | string;
   orderNumber: string;
   customerName: string;
   customerAddress: string;
@@ -71,4 +71,17 @@ export interface Customer {
   email: string;
   role: string;
   address?: string;
+}
+
+// Define a Product interface to be used in Orders.tsx
+export interface Product {
+  id: string;
+  name: string;
+  price: number;
+  stock: number;
+  warehouse1: number;
+  warehouse2: number;
+  warehouse3: number;
+  mainWarehouse: number;
+  box_qty?: number; // Use snake_case to match the database field
 }

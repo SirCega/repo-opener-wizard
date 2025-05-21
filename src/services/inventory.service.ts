@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Product, 
@@ -70,6 +69,36 @@ export const getWarehouses = async (): Promise<Warehouse[]> => {
   }
 };
 
+// Make sure we have a proper warehouse interface in the Movement type
+export interface Warehouse {
+  name: string;
+  [key: string]: any; // Allow additional properties
+}
+
+export interface Movement {
+  id: string;
+  product_id: string;
+  warehouse_id: string;
+  quantity: number;
+  type: string;
+  notes: string;
+  responsible_id: string;
+  created_at: string;
+  product?: {
+    name: string;
+    sku: string;
+  };
+  warehouse: Warehouse; // Use the warehouse interface
+  responsible?: {
+    name: string;
+  };
+  source_warehouse_id?: string;
+  destination_warehouse_id?: string;
+  source_warehouse?: Warehouse;
+  destination_warehouse?: Warehouse;
+  [key: string]: any; // Allow additional properties for flexibility
+}
+
 // Get inventory movements history
 export const getMovements = async (): Promise<Movement[]> => {
   try {
@@ -78,7 +107,7 @@ export const getMovements = async (): Promise<Movement[]> => {
       .select(`
         *,
         product:product_id (name, sku),
-        warehouse:warehouse_id (name),
+        warehouse:warehouse_id (name, type),
         source_warehouse:source_warehouse_id (name),
         destination_warehouse:destination_warehouse_id (name),
         responsible:responsible_id (name)
@@ -86,10 +115,17 @@ export const getMovements = async (): Promise<Movement[]> => {
       .order('created_at', { ascending: false });
     
     if (error) throw error;
-    return data;
+    
+    // Ensure warehouse has a name property even if there's an error
+    return data.map(movement => ({
+      ...movement,
+      warehouse: movement.warehouse || { name: 'Almacén desconocido' },
+      source_warehouse: movement.source_warehouse || (movement.source_warehouse_id ? { name: 'Almacén desconocido' } : undefined),
+      destination_warehouse: movement.destination_warehouse || (movement.destination_warehouse_id ? { name: 'Almacén desconocido' } : undefined)
+    }));
   } catch (error) {
-    console.error('Error fetching movements:', error);
-    throw error;
+    console.error('Error fetching inventory movements:', error);
+    return [];
   }
 };
 

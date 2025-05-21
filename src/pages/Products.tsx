@@ -128,6 +128,20 @@ const Products: React.FC = () => {
   // Get all unique categories from actual data
   const categories = Array.from(new Set(productsData.map(item => item.category)));
 
+  const handleAddProduct = (formData, resetForm) => {
+    // Implement the logic to add a new product
+    // Example: inventoryService.addProduct(formData);
+    // resetForm();
+  };
+
+  const handleEditProduct = (product) => {
+    setEditingProduct({
+      ...product,
+      box_qty: product.box_qty // Ensure we use the correct property name
+    });
+    setIsEditProductDialogOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       <div>

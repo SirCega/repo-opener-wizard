@@ -1,6 +1,5 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { User } from '@/types/auth-types';
 import { 
   Order, 
   OrderItem, 
@@ -27,13 +26,13 @@ export const getOrders = async (): Promise<Order[]> => {
       customer: order.customer?.name || 'Cliente no especificado',
       customerId: order.customer_id,
       date: new Date(order.created_at).toISOString().split('T')[0],
-      status: order.status,
+      status: order.status as Order['status'],
       address: order.shipping_address,
       total: Number(order.total_amount),
       customer_id: order.customer_id,
       shipping_address: order.shipping_address,
       total_amount: Number(order.total_amount),
-      payment_status: order.payment_status,
+      payment_status: order.payment_status as Order['payment_status'],
       // Load items separately as they're in a different table
       items: []
     }));
@@ -88,13 +87,13 @@ export const getOrderById = async (id: string): Promise<Order | null> => {
       customer: data.customer?.name || 'Cliente no especificado',
       customerId: data.customer_id,
       date: new Date(data.created_at).toISOString().split('T')[0],
-      status: data.status,
+      status: data.status as Order['status'],
       address: data.shipping_address,
       total: Number(data.total_amount),
       customer_id: data.customer_id,
       shipping_address: data.shipping_address,
       total_amount: Number(data.total_amount),
-      payment_status: data.payment_status,
+      payment_status: data.payment_status as Order['payment_status'],
       items: orderItems
     };
   } catch (error) {
@@ -148,13 +147,13 @@ export const updateOrderStatus = async (
       customer: data.customer?.name || 'Cliente no especificado',
       customerId: data.customer_id,
       date: new Date(data.created_at).toISOString().split('T')[0],
-      status: data.status,
+      status: data.status as Order['status'],
       address: data.shipping_address,
       total: Number(data.total_amount),
       customer_id: data.customer_id,
       shipping_address: data.shipping_address,
       total_amount: Number(data.total_amount),
-      payment_status: data.payment_status,
+      payment_status: data.payment_status as Order['payment_status'],
       deliveryPersonId: deliveryPersonId,
       deliveryPersonName: deliveryPersonName,
       items: []
@@ -187,7 +186,7 @@ export const getAllInvoices = async (): Promise<Invoice[]> => {
       due_date: new Date(invoice.due_date).toISOString().split('T')[0],
       total_amount: Number(invoice.total_amount),
       tax_amount: Number(invoice.tax_amount),
-      status: invoice.status,
+      status: invoice.status as Invoice['status'],
       orderNumber: `ORD-${invoice.order_id.substring(0, 5)}`,
       customerName: invoice.order?.customer?.name || 'Cliente no especificado',
       customerAddress: invoice.order?.customer?.address || 'Dirección no especificada',
@@ -349,13 +348,13 @@ export const createOrder = async (orderData: Omit<Order, "id">): Promise<Order> 
       customer: '', // Se completaría si se necesita
       customerId: order.customer_id,
       date: new Date(order.created_at).toISOString().split('T')[0],
-      status: order.status,
+      status: order.status as Order['status'],
       address: order.shipping_address,
       total: Number(order.total_amount),
       customer_id: order.customer_id,
       shipping_address: order.shipping_address,
       total_amount: Number(order.total_amount),
-      payment_status: order.payment_status,
+      payment_status: order.payment_status as Order['payment_status'],
       items: orderData.items || []
     };
   } catch (error) {
@@ -364,155 +363,5 @@ export const createOrder = async (orderData: Omit<Order, "id">): Promise<Order> 
   }
 };
 
-// Hook para usar el servicio de órdenes
-export const useOrderService = () => {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-  const [customers, setCustomers] = useState<User[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>('');
-
-  // Cargar órdenes
-  const loadOrders = async () => {
-    try {
-      setLoading(true);
-      const data = await getOrders();
-      setOrders(data);
-    } catch (err: any) {
-      setError(`Error al cargar órdenes: ${err.message}`);
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Cargar facturas
-  const loadInvoices = async () => {
-    try {
-      setLoading(true);
-      const data = await getAllInvoices();
-      setInvoices(data);
-    } catch (err: any) {
-      setError(`Error al cargar facturas: ${err.message}`);
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Cargar entregas
-  const loadDeliveries = async () => {
-    try {
-      setLoading(true);
-      const data = await getAllDeliveries();
-      setDeliveries(data);
-    } catch (err: any) {
-      setError(`Error al cargar entregas: ${err.message}`);
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Cargar clientes
-  const loadCustomers = async () => {
-    try {
-      setLoading(true);
-      const data = await getCustomers();
-      setCustomers(data as User[]);
-    } catch (err: any) {
-      setError(`Error al cargar clientes: ${err.message}`);
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Inicializar datos al montar el componente
-  useEffect(() => {
-    loadOrders();
-    loadInvoices();
-    loadDeliveries();
-    loadCustomers();
-  }, []);
-
-  // Actualizar estado de orden
-  const handleUpdateOrderStatus = async (
-    orderId: string, 
-    status: string, 
-    deliveryPersonId?: string,
-    deliveryPersonName?: string
-  ) => {
-    try {
-      setLoading(true);
-      await updateOrderStatus(orderId, status, deliveryPersonId, deliveryPersonName);
-      await loadOrders();
-      await loadDeliveries();
-      return true;
-    } catch (err: any) {
-      setError(`Error al actualizar estado: ${err.message}`);
-      console.error(err);
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Pagar factura
-  const handlePayInvoice = async (invoiceId: string) => {
-    try {
-      setLoading(true);
-      await payInvoice(invoiceId);
-      await loadInvoices();
-      await loadOrders();
-      return true;
-    } catch (err: any) {
-      setError(`Error al procesar pago: ${err.message}`);
-      console.error(err);
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Crear una nueva orden
-  const handleCreateOrder = async (orderData: Omit<Order, "id">) => {
-    try {
-      setLoading(true);
-      const newOrder = await createOrder(orderData);
-      setOrders(prevOrders => [...prevOrders, newOrder]);
-      return newOrder;
-    } catch (err: any) {
-      setError(`Error al crear orden: ${err.message}`);
-      console.error(err);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return {
-    orders,
-    invoices,
-    deliveries,
-    customers,
-    loading,
-    error,
-    loadOrders,
-    loadInvoices,
-    loadDeliveries,
-    loadCustomers,
-    updateOrderStatus: handleUpdateOrderStatus,
-    payInvoice: handlePayInvoice,
-    createOrder: handleCreateOrder,
-    // Métodos adicionales para compatibilidad con código existente
-    getAllOrders: loadOrders,
-    getAllInvoices: loadInvoices,
-    getAllDeliveries: loadDeliveries,
-    getCustomers: loadCustomers
-  };
-};
-
-// Exportar los tipos
+// Re-export the types
 export type { Order, OrderItem, Invoice, Delivery, Customer };

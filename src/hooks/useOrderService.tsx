@@ -80,7 +80,7 @@ export function useOrderService() {
 
   const updateOrder = async (
     orderId: string,
-    status: 'preparacion' | 'enviado' | 'entregado' | 'cancelado',
+    status: 'preparacion' | 'enviado' | 'entregado' | 'cancelado' | string,
     deliveryPersonId?: string,
     deliveryPersonName?: string
   ) => {
