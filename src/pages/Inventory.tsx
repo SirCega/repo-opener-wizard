@@ -16,7 +16,7 @@ import {
   Boxes,
   Box,
   Building2,
-  BuildingWarehouse,
+  Warehouse,
   Users,
   Home,
   AlertCircle,
@@ -48,8 +48,8 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Product, TransferRequest, Warehouse } from '@/types/inventory-types';
-import { getProducts, getWarehouses, transferProducts } from '@/services/inventory.service';
+import { Product, TransferRequest, Warehouse as WarehouseType } from '@/types/inventory-types';
+import { useInventoryService } from '@/hooks/useInventoryService';
 import MovementHistory from '@/components/inventory/MovementHistory';
 
 const Inventory: React.FC = () => {
@@ -58,8 +58,17 @@ const Inventory: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [showAddProductDialog, setShowAddProductDialog] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const { 
+    products, 
+    warehouses, 
+    loading, 
+    error, 
+    loadProducts, 
+    loadWarehouses,
+    addProduct,
+    transferProduct
+  } = useInventoryService();
+  
   const [addProductData, setAddProductData] = useState<Omit<Product, 'id'>>({
     name: '',
     sku: '',
@@ -68,6 +77,7 @@ const Inventory: React.FC = () => {
     category: '',
     threshold: 0,
     box_qty: 0,
+    warehouse_quantities: {},
     mainWarehouse: 0,
     warehouse1: 0,
     warehouse2: 0,
@@ -81,35 +91,11 @@ const Inventory: React.FC = () => {
     notes: ''
   });
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadProducts();
     loadWarehouses();
   }, []);
-
-  const loadProducts = async () => {
-    try {
-      setLoading(true);
-      const products = await getProducts();
-      setProducts(products);
-    } catch (error) {
-      setError('Error loading products');
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadWarehouses = async () => {
-    try {
-      const warehouses = await getWarehouses();
-      setWarehouses(warehouses);
-    } catch (error) {
-      console.error("Error al cargar bodegas:", error);
-    }
-  };
 
   const handleSort = (column: keyof Product) => {
     if (sortColumn === column) {
@@ -161,24 +147,39 @@ const Inventory: React.FC = () => {
     }));
   };
 
-  const handleAddProduct = async (product: Omit<Product, 'id'>) => {
+  const handleAddProduct = async () => {
     try {
-      await addProduct({
-        ...product,
+      const success = await addProduct({
+        ...addProductData,
         warehouse_quantities: {
-          "w1": product.mainWarehouse || 0,
-          "w2": product.warehouse2 || 0,
-          "w3": product.warehouse3 || 0
+          "w1": addProductData.mainWarehouse || 0,
+          "w2": addProductData.warehouse2 || 0,
+          "w3": addProductData.warehouse3 || 0
         }
       });
       
-      toast({
-        title: "Producto agregado",
-        description: "El producto ha sido agregado exitosamente."
-      });
-      
-      setShowAddProductDialog(false);
-      await loadProducts();
+      if (success) {
+        toast({
+          title: "Producto agregado",
+          description: "El producto ha sido agregado exitosamente."
+        });
+        
+        setShowAddProductDialog(false);
+        setAddProductData({
+          name: '',
+          sku: '',
+          description: '',
+          price: 0,
+          category: '',
+          threshold: 0,
+          box_qty: 0,
+          warehouse_quantities: {},
+          mainWarehouse: 0,
+          warehouse1: 0,
+          warehouse2: 0,
+          warehouse3: 0
+        });
+      }
     } catch (error) {
       console.error("Error al agregar producto:", error);
       toast({
@@ -228,8 +229,6 @@ const Inventory: React.FC = () => {
         quantity: 0,
         notes: ''
       });
-      
-      await loadProducts();
     } catch (error) {
       console.error("Error en transferencia:", error);
       toast({
@@ -281,7 +280,7 @@ const Inventory: React.FC = () => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
-                <Dialog>
+                <Dialog open={showAddProductDialog} onOpenChange={setShowAddProductDialog}>
                   <DialogTrigger asChild>
                     <Button variant="outline">
                       <Plus className="mr-2 h-4 w-4" />
@@ -420,7 +419,7 @@ const Inventory: React.FC = () => {
                       <Button type="button" variant="secondary" onClick={() => setShowAddProductDialog(false)}>
                         Cancelar
                       </Button>
-                      <Button type="submit" onClick={() => handleAddProduct(addProductData)}>Agregar</Button>
+                      <Button type="submit" onClick={handleAddProduct}>Agregar</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>

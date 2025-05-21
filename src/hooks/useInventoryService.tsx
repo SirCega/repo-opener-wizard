@@ -200,10 +200,19 @@ export function useInventoryService() {
         warehouse3: p.warehouse_quantities?.["w3"] || 0
       }));
     },
-    transferProduct: (transfer: TransferRequest) => {
-      console.log("Transferring products:", transfer);
-      // Delegate to the service
-      return inventoryService.transferProducts(transfer);
+    transferProduct: async (transfer: TransferRequest) => {
+      try {
+        setLoading(true);
+        const result = await inventoryService.transferProducts(transfer);
+        await Promise.all([loadInventory(), loadMovements()]);
+        return result;
+      } catch (err) {
+        setError('Error transferring products');
+        console.error(err);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
     }
   };
 }
