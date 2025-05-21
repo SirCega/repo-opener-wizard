@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Product, 
@@ -72,14 +73,15 @@ export const getWarehouses = async (): Promise<WarehouseType[]> => {
 // Get inventory movements history
 export const getMovements = async (): Promise<MovementType[]> => {
   try {
+    // Use explicit aliases in the query to avoid ambiguity
     const { data, error } = await supabase
       .from('inventory_movements')
       .select(`
         *,
         product:product_id (name, sku),
-        warehouse:warehouse_id (name, type),
-        source:source_warehouse_id (name),
-        destination:destination_warehouse_id (name),
+        wh:warehouse_id (name, type),
+        src:source_warehouse_id (name),
+        dest:destination_warehouse_id (name),
         responsible:responsible_id (name)
       `)
       .order('created_at', { ascending: false });
@@ -90,13 +92,13 @@ export const getMovements = async (): Promise<MovementType[]> => {
     const transformedData: MovementType[] = data.map(movement => ({
       ...movement,
       warehouse: {
-        name: movement.warehouse?.name || 'Unknown Warehouse'
+        name: movement.wh?.name || 'Unknown Warehouse'
       },
-      source_warehouse: movement.source ? { 
-        name: movement.source.name || 'Unknown Source'
+      source_warehouse: movement.src ? { 
+        name: movement.src.name || 'Unknown Source'
       } : undefined,
-      destination_warehouse: movement.destination ? { 
-        name: movement.destination.name || 'Unknown Destination'
+      destination_warehouse: movement.dest ? { 
+        name: movement.dest.name || 'Unknown Destination'
       } : undefined
     }));
     
