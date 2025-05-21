@@ -1,7 +1,67 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { Order, Invoice, Delivery, OrderItem } from '@/types/order-types';
 import { User } from '@/types/auth-types';
+
+// Define all necessary types and export them
+export interface OrderItem {
+  id: string;
+  order_id: string;
+  product_id: string;
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
+  warehouse_id: string;
+  productName: string;
+  price: number;
+}
+
+export interface Order {
+  id: string;
+  orderNumber: string;
+  customer: string;
+  customerId: string;
+  date: string;
+  status: 'pendiente' | 'preparacion' | 'enviado' | 'entregado' | 'cancelado';
+  address: string;
+  total: number;
+  deliveryPersonId?: number;
+  deliveryPersonName?: string;
+  customer_id: string;
+  shipping_address: string;
+  total_amount: number;
+  payment_status: string;
+  items?: OrderItem[];
+}
+
+export interface Invoice {
+  id: string;
+  order_id: string;
+  invoice_number: string;
+  issue_date: string;
+  due_date: string;
+  total_amount: number;
+  tax_amount: number;
+  status: string;
+  orderNumber: string;
+  customerName: string;
+  customerAddress: string;
+  date: string;
+  subtotal: number;
+  tax: number;
+  total: number;
+  items?: OrderItem[];
+}
+
+export interface Delivery {
+  id: string;
+  order_id: string;
+  delivery_person_id: string;
+  status: string;
+  assigned_at: string;
+  estimated_delivery?: string;
+  actual_delivery?: string;
+}
+
+export type Customer = User;
 
 // Dummy data for now - this would be replaced with actual API calls
 const dummyOrders: Order[] = [
@@ -107,6 +167,19 @@ const dummyInvoices: Invoice[] = [
     ]
   }
 ];
+
+// Hook for order service
+export const useOrderService = () => {
+  return {
+    getAllOrders,
+    getOrderById,
+    updateOrderStatus,
+    getAllInvoices,
+    payInvoice,
+    getAllDeliveries,
+    getCustomers
+  };
+};
 
 export const getAllOrders = async (): Promise<Order[]> => {
   // This would be replaced with an actual API call to Supabase

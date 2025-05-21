@@ -1,10 +1,81 @@
-
 import { supabase } from '@/integrations/supabase/client';
-import { Product, Warehouse, Movement, TransferRequest, InventoryItem } from '@/types/inventory-types';
+
+// Define and export Product interface with warehouse_quantities
+export interface Product {
+  id: string;
+  name: string;
+  sku: string;
+  description?: string;
+  price: number;
+  category: string;
+  threshold: number;
+  box_qty: number;
+  warehouse_quantities?: {
+    [warehouseId: string]: number;
+  };
+  // These fields are used for UI compatibility
+  mainWarehouse?: number;
+  warehouse1?: number;
+  warehouse2?: number;
+  warehouse3?: number;
+}
+
+export interface InventoryItem {
+  id: string;
+  product_id: string;
+  warehouse_id: string;
+  quantity: number;
+  updated_at?: string;
+}
+
+export interface Warehouse {
+  id: string;
+  name: string;
+  type: string;
+  address: string;
+}
+
+export interface Movement {
+  id: string;
+  type: string;
+  product_id: string;
+  warehouse_id: string;
+  quantity: number;
+  source_warehouse_id?: string;
+  destination_warehouse_id?: string;
+  responsible_id?: string;
+  created_at: string;
+  product?: {
+    name: string;
+    sku: string;
+  };
+  warehouse?: {
+    name: string;
+  };
+  source_warehouse?: {
+    name: string;
+  };
+  destination_warehouse?: {
+    name: string;
+  };
+  responsible?: {
+    name: string;
+  };
+  notes?: string;
+}
+
+export interface TransferRequest {
+  product_id: string;
+  sourceWarehouseId: string;
+  destinationWarehouseId: string;
+  quantity: number;
+  responsible_id?: string;
+  notes?: string;
+}
 
 // Get all products with their stock information
 export const getProducts = async (): Promise<Product[]> => {
-  // This would be replaced with an actual API call to Supabase
+  // This would be replaced with an actual API call
   // For now, return dummy data
   return [
     {
@@ -82,7 +153,13 @@ export const getProducts = async (): Promise<Product[]> => {
         "w3": 6
       }
     }
-  ];
+  ].map(product => ({
+    ...product,
+    mainWarehouse: product.warehouse_quantities?.["w1"] || 0,
+    warehouse1: product.warehouse_quantities?.["w1"] || 0,
+    warehouse2: product.warehouse_quantities?.["w2"] || 0,
+    warehouse3: product.warehouse_quantities?.["w3"] || 0
+  }));
 };
 
 // Alias for getProducts to maintain compatibility
@@ -199,7 +276,12 @@ export const addProduct = async (product: Omit<Product, "id">): Promise<Product>
   console.log("Adding product:", product);
   return {
     id: Math.random().toString(36).substring(2, 11),
-    ...product
+    ...product,
+    warehouse_quantities: {
+      "w1": product.mainWarehouse || 0,
+      "w2": product.warehouse2 || 0,
+      "w3": product.warehouse3 || 0
+    }
   };
 };
 
@@ -208,7 +290,19 @@ export const updateProduct = async (id: string, product: Partial<Product>): Prom
   console.log("Updating product:", id, product);
   return {
     id,
-    ...product as Product
+    name: "Updated Product",
+    sku: "UPD-001",
+    description: "Updated description",
+    price: 100,
+    category: "Updated Category",
+    threshold: 10,
+    box_qty: 12,
+    ...product,
+    warehouse_quantities: {
+      "w1": product.mainWarehouse || 0,
+      "w2": product.warehouse2 || 0,
+      "w3": product.warehouse3 || 0
+    }
   };
 };
 
@@ -243,7 +337,10 @@ export const updateInventory = async (id: string, inventory: Partial<InventoryIt
   console.log("Updating inventory:", id, inventory);
   return {
     id,
-    ...inventory as InventoryItem
+    product_id: "product-id",
+    warehouse_id: "warehouse-id",
+    quantity: 10,
+    ...inventory
   };
 };
 
@@ -269,6 +366,25 @@ export const transferProducts = async (transfer: TransferRequest): Promise<Movem
 export const updateStock = async (productId: string, warehouseId: string, quantity: number): Promise<void> => {
   // This would be replaced with an actual API call
   console.log(`Updating stock for product ${productId} in warehouse ${warehouseId}: ${quantity}`);
+};
+
+// Export a useInventoryService hook for convenience
+export const useInventoryService = () => {
+  return {
+    getProducts,
+    getAllProducts,
+    getWarehouses,
+    getMovements,
+    getInventory,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    addMovement,
+    addInventory,
+    updateInventory,
+    transferProducts,
+    updateStock
+  };
 };
 
 // Re-export the types for better imports

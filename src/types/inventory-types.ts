@@ -1,4 +1,5 @@
 
+// Define and export Product interface with warehouse_quantities
 export interface Product {
   id: string;
   name: string;
@@ -8,41 +9,41 @@ export interface Product {
   category: string;
   threshold: number;
   box_qty: number;
-  image_url?: string;
-  created_at?: string;
-  updated_at?: string;
-  
-  // Stock quantities in different warehouses
-  stock?: {
+  warehouse_quantities?: {
     [warehouseId: string]: number;
   };
-  
-  // UI specific fields for warehouse quantities
-  warehouse_quantities?: {
-    [key: string]: number;
-  };
+  // These fields are used for UI compatibility
+  mainWarehouse?: number;
+  warehouse1?: number;
+  warehouse2?: number;
+  warehouse3?: number;
+}
+
+export interface InventoryItem {
+  id: string;
+  product_id: string;
+  warehouse_id: string;
+  quantity: number;
+  updated_at?: string;
 }
 
 export interface Warehouse {
   id: string;
   name: string;
   type: string;
-  address?: string;
+  address: string;
 }
 
 export interface Movement {
   id: string;
-  type: 'entrada' | 'salida' | 'transferencia' | 'ajuste';
+  type: string;
   product_id: string;
   warehouse_id: string;
   quantity: number;
   source_warehouse_id?: string;
   destination_warehouse_id?: string;
-  responsible_id: string;
-  notes?: string;
-  created_at?: string;
-  
-  // Extended information
+  responsible_id?: string;
+  created_at: string;
   product?: {
     name: string;
     sku: string;
@@ -59,6 +60,7 @@ export interface Movement {
   responsible?: {
     name: string;
   };
+  notes?: string;
 }
 
 export interface TransferRequest {
@@ -66,25 +68,6 @@ export interface TransferRequest {
   sourceWarehouseId: string;
   destinationWarehouseId: string;
   quantity: number;
-  responsible_id: string;
+  responsible_id?: string;
   notes?: string;
-}
-
-export interface InventoryItem {
-  id: string;
-  product_id: string;
-  warehouse_id: string;
-  quantity: number;
-  updated_at?: string;
-  
-  // Extended information
-  product?: Product;
-  warehouse?: Warehouse;
-}
-
-// Alias Movement as InventoryMovement for compatibility
-export type InventoryMovement = Movement;
-
-export interface ProductWithStock extends Omit<Product, 'stock'> {
-  stock: number;
 }

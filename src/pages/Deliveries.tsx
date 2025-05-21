@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -44,7 +43,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Order, getOrders, useOrderService } from '@/services/order.service';
+import { Order, getOrders, updateOrderStatus } from '@/services/order.service';
 
 // Datos de domiciliarios
 const deliveryPeople = [
@@ -65,7 +64,6 @@ const Deliveries: React.FC = () => {
   const [isViewDeliveryDialogOpen, setIsViewDeliveryDialogOpen] = useState(false);
   const [selectedDeliveryPerson, setSelectedDeliveryPerson] = useState<number | null>(null);
   const { toast } = useToast();
-  const orderService = useOrderService();
   
   // Cargar pedidos
   useEffect(() => {
@@ -108,7 +106,7 @@ const Deliveries: React.FC = () => {
     
     return filteredOrders.filter(order => 
       (searchQuery === '' || 
-        order.customer.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        order.customer.toString().toLowerCase().includes(searchQuery.toLowerCase()) || 
         order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())) &&
       (statusFilter === 'all' || order.status === statusFilter)
     );
@@ -136,7 +134,7 @@ const Deliveries: React.FC = () => {
       }
       
       // Actualizar el estado del pedido a enviado
-      const updatedOrder = orderService.updateOrderStatus(
+      const updatedOrder = updateOrderStatus(
         currentOrder.id,
         'enviado',
         deliveryPerson.id,
@@ -175,7 +173,7 @@ const Deliveries: React.FC = () => {
     
     try {
       // Actualizar el estado del pedido a entregado
-      const updatedOrder = orderService.updateOrderStatus(
+      const updatedOrder = updateOrderStatus(
         currentOrder.id,
         'entregado'
       );
@@ -345,7 +343,7 @@ const Deliveries: React.FC = () => {
                     filteredDeliveries.map((delivery) => (
                       <TableRow key={delivery.id}>
                         <TableCell className="font-medium">{delivery.orderNumber}</TableCell>
-                        <TableCell>{delivery.customer}</TableCell>
+                        <TableCell>{delivery.customer.toString()}</TableCell>
                         <TableCell>{new Date(delivery.date).toLocaleDateString()}</TableCell>
                         <TableCell className="max-w-[200px] truncate">{delivery.address}</TableCell>
                         <TableCell>
@@ -413,7 +411,7 @@ const Deliveries: React.FC = () => {
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Cliente:</span>
-                        <span className="font-medium">{currentOrder.customer}</span>
+                        <span className="font-medium">{currentOrder.customer.toString()}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Dirección:</span>
@@ -513,7 +511,7 @@ const Deliveries: React.FC = () => {
                         Información del Cliente
                       </h3>
                       <div className="bg-muted/30 rounded-md p-3">
-                        <p className="font-medium">{currentOrder.customer}</p>
+                        <p className="font-medium">{currentOrder.customer.toString()}</p>
                         <p className="text-sm text-muted-foreground">
                           Cliente #{currentOrder.customerId}
                         </p>

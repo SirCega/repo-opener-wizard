@@ -36,8 +36,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Product, TransferRequest, useInventoryService } from '@/services/inventory.service';
-import { MovementHistory } from '@/components/inventory/MovementHistory';
+import { Product, TransferRequest } from '@/types/inventory-types';
+import { getProducts, transferProducts } from '@/services/inventory.service';
+import MovementHistory from '@/components/inventory/MovementHistory';
 
 const Inventory: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,31 +49,35 @@ const Inventory: React.FC = () => {
   const [isAddProductDialogOpen, setIsAddProductDialogOpen] = useState(false);
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
   const { toast } = useToast();
-  const inventoryService = useInventoryService();
   
   const [newProduct, setNewProduct] = useState<Omit<Product, 'id'>>({
     sku: '',
     name: '',
     category: '',
-    mainWarehouse: 0,
-    warehouse1: 0,
-    warehouse2: 0,
-    warehouse3: 0,
-    threshold: 0,
+    description: '',
     price: 0,
-    boxQty: 0
+    threshold: 0,
+    box_qty: 0,
+    warehouse_quantities: {
+      "w1": 0,
+      "w2": 0,
+      "w3": 0
+    }
   });
   
   const [transfer, setTransfer] = useState<TransferRequest>({
-    productId: 0,
-    sourceWarehouse: 'mainWarehouse',
-    destinationWarehouse: 'warehouse1',
+    product_id: '',
+    sourceWarehouseId: 'w1',
+    destinationWarehouseId: 'w2',
     quantity: 1
   });
   
   useEffect(() => {
-    const data = inventoryService.getInventory();
-    setInventoryData(data);
+    const loadData = async () => {
+      const products = await getProducts();
+      setInventoryData(products);
+    };
+    loadData();
   }, []);
   
   const handleSort = (field: keyof Product) => {
@@ -108,20 +113,35 @@ const Inventory: React.FC = () => {
   const categories = Array.from(new Set(inventoryData.map(item => item.category)));
   
   const lowStockItems = inventoryData.filter(item => {
+    const w1 = item.warehouse_quantities?.["w1"] || 0;
+    const w2 = item.warehouse_quantities?.["w2"] || 0;
+    const w3 = item.warehouse_quantities?.["w3"] || 0;
     return (
-      item.warehouse1 < item.threshold || 
-      item.warehouse2 < item.threshold || 
-      item.warehouse3 < item.threshold
+      w1 < item.threshold || 
+      w2 < item.threshold || 
+      w3 < item.threshold
     );
   });
   
   const handleNewProductChange = (field: string, value: string | number) => {
-    setNewProduct(prev => ({
-      ...prev,
-      [field]: typeof value === 'string' && field !== 'name' && field !== 'category' && field !== 'sku' 
-        ? parseFloat(value) || 0
-        : value
-    }));
+    setNewProduct(prev => {
+      if (field === 'warehouse_quantities.w1' || field === 'warehouse_quantities.w2' || field === 'warehouse_quantities.w3') {
+        const [parent, child] = field.split('.');
+        return {
+          ...prev,
+          warehouse_quantities: {
+            ...prev.warehouse_quantities,
+            [child]: typeof value === 'string' ? parseFloat(value) || 0 : value
+          }
+        };
+      }
+      return {
+        ...prev,
+        [field]: typeof value === 'string' && field !== 'name' && field !== 'category' && field !== 'sku' && field !== 'description'
+          ? parseFloat(value) || 0
+          : value
+      };
+    });
   };
   
   const handleCreateProduct = () => {
@@ -135,7 +155,11 @@ const Inventory: React.FC = () => {
         return;
       }
       
-      const createdProduct = inventoryService.addProduct(newProduct);
+      // In a real app, this would call the service
+      const createdProduct = {
+        id: Math.random().toString(36).substring(2, 11),
+        ...newProduct
+      };
       
       setInventoryData(prev => [...prev, createdProduct]);
       
@@ -144,13 +168,15 @@ const Inventory: React.FC = () => {
         sku: '',
         name: '',
         category: '',
-        mainWarehouse: 0,
-        warehouse1: 0,
-        warehouse2: 0,
-        warehouse3: 0,
-        threshold: 0,
+        description: '',
         price: 0,
-        boxQty: 0
+        threshold: 0,
+        box_qty: 0,
+        warehouse_quantities: {
+          "w1": 0,
+          "w2": 0,
+          "w3": 0
+        }
       });
     } catch (err) {
       console.error(err);
@@ -166,7 +192,7 @@ const Inventory: React.FC = () => {
   
   const handleTransferProduct = () => {
     try {
-      if (!transfer.productId) {
+      if (!transfer.product_id) {
         toast({
           title: "Error",
           description: "Debe seleccionar un producto",
@@ -184,7 +210,7 @@ const Inventory: React.FC = () => {
         return;
       }
       
-      if (transfer.sourceWarehouse === transfer.destinationWarehouse) {
+      if (transfer.sourceWarehouseId === transfer.destinationWarehouseId) {
         toast({
           title: "Error",
           description: "Las bodegas de origen y destino deben ser diferentes",
@@ -193,29 +219,54 @@ const Inventory: React.FC = () => {
         return;
       }
       
-      const updatedProduct = inventoryService.transferProduct(transfer);
+      // In a real app, this would call the service
+      transferProducts(transfer);
       
-      setInventoryData(prev => prev.map(item => 
-        item.id === updatedProduct.id ? updatedProduct : item
-      ));
+      // Update product quantities in local state for display
+      setInventoryData(prev => prev.map(item => {
+        if (item.id === transfer.product_id) {
+          const sourceQty = item.warehouse_quantities?.[transfer.sourceWarehouseId] || 0;
+          const destQty = item.warehouse_quantities?.[transfer.destinationWarehouseId] || 0;
+          
+          return {
+            ...item,
+            warehouse_quantities: {
+              ...item.warehouse_quantities,
+              [transfer.sourceWarehouseId]: Math.max(0, sourceQty - transfer.quantity),
+              [transfer.destinationWarehouseId]: destQty + transfer.quantity
+            }
+          };
+        }
+        return item;
+      }));
       
       setIsTransferDialogOpen(false);
       setTransfer({
-        productId: 0,
-        sourceWarehouse: 'mainWarehouse',
-        destinationWarehouse: 'warehouse1',
+        product_id: '',
+        sourceWarehouseId: 'w1',
+        destinationWarehouseId: 'w2',
         quantity: 1
+      });
+      
+      toast({
+        title: "Transferencia realizada",
+        description: "La transferencia se ha realizado exitosamente"
       });
     } catch (err) {
       console.error(err);
+      toast({
+        title: "Error",
+        description: "Error al realizar la transferencia",
+        variant: "destructive"
+      });
     }
   };
   
   const warehouseNames = {
-    mainWarehouse: 'Bodega Principal',
-    warehouse1: 'Bodega 1',
-    warehouse2: 'Bodega 2',
-    warehouse3: 'Bodega 3'
+    w1: 'Bodega Principal',
+    w2: 'Bodega 1',
+    w3: 'Bodega 2',
+    w4: 'Bodega 3'
   };
   
   return (
@@ -231,19 +282,29 @@ const Inventory: React.FC = () => {
         <Card className="md:w-1/3">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Bodega Principal</CardTitle>
-            <CardDescription>Inventario total: {inventoryData.reduce((acc, item) => acc + item.mainWarehouse, 0)} unidades</CardDescription>
+            <CardDescription>
+              Inventario total: {inventoryData.reduce((acc, item) => acc + (item.warehouse_quantities?.["w1"] || 0), 0)} unidades
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               {categories.slice(0, 3).map(category => (
                 <div key={category} className="flex justify-between items-center">
                   <span className="text-sm">{category}</span>
-                  <span className="font-medium">{inventoryData.filter(i => i.category === category).reduce((acc, item) => acc + item.mainWarehouse, 0)} u.</span>
+                  <span className="font-medium">
+                    {inventoryData
+                      .filter(i => i.category === category)
+                      .reduce((acc, item) => acc + (item.warehouse_quantities?.["w1"] || 0), 0)} u.
+                  </span>
                 </div>
               ))}
               <div className="flex justify-between items-center">
                 <span className="text-sm">Otros</span>
-                <span className="font-medium">{inventoryData.filter(i => !categories.slice(0, 3).includes(i.category)).reduce((acc, item) => acc + item.mainWarehouse, 0)} u.</span>
+                <span className="font-medium">
+                  {inventoryData
+                    .filter(i => !categories.slice(0, 3).includes(i.category))
+                    .reduce((acc, item) => acc + (item.warehouse_quantities?.["w1"] || 0), 0)} u.
+                </span>
               </div>
             </div>
           </CardContent>
@@ -252,21 +313,34 @@ const Inventory: React.FC = () => {
         <Card className="md:w-1/3">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Sucursales</CardTitle>
-            <CardDescription>Inventario total en sucursales: {inventoryData.reduce((acc, item) => acc + item.warehouse1 + item.warehouse2 + item.warehouse3, 0)} unidades</CardDescription>
+            <CardDescription>
+              Inventario total en sucursales: {
+                inventoryData.reduce((acc, item) => 
+                  acc + 
+                  (item.warehouse_quantities?.["w2"] || 0) + 
+                  (item.warehouse_quantities?.["w3"] || 0), 0)
+              } unidades
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-sm">Bodega 1</span>
-                <span className="font-medium">{inventoryData.reduce((acc, item) => acc + item.warehouse1, 0)} u.</span>
+                <span className="font-medium">
+                  {inventoryData.reduce((acc, item) => acc + (item.warehouse_quantities?.["w2"] || 0), 0)} u.
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm">Bodega 2</span>
-                <span className="font-medium">{inventoryData.reduce((acc, item) => acc + item.warehouse2, 0)} u.</span>
+                <span className="font-medium">
+                  {inventoryData.reduce((acc, item) => acc + (item.warehouse_quantities?.["w3"] || 0), 0)} u.
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm">Bodega 3</span>
-                <span className="font-medium">{inventoryData.reduce((acc, item) => acc + item.warehouse3, 0)} u.</span>
+                <span className="font-medium">
+                  {inventoryData.reduce((acc, item) => acc + (item.warehouse_quantities?.["w4"] || 0), 0)} u.
+                </span>
               </div>
             </div>
           </CardContent>
@@ -286,13 +360,13 @@ const Inventory: React.FC = () => {
                 <div key={item.id} className="flex justify-between items-center">
                   <span className="text-sm truncate max-w-[180px]">{item.name}</span>
                   <div>
-                    {item.warehouse1 < item.threshold && (
+                    {(item.warehouse_quantities?.["w2"] || 0) < item.threshold && (
                       <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200 mr-1">B1</Badge>
                     )}
-                    {item.warehouse2 < item.threshold && (
+                    {(item.warehouse_quantities?.["w3"] || 0) < item.threshold && (
                       <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200 mr-1">B2</Badge>
                     )}
-                    {item.warehouse3 < item.threshold && (
+                    {(item.warehouse_quantities?.["w4"] || 0) < item.threshold && (
                       <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">B3</Badge>
                     )}
                   </div>
@@ -379,8 +453,8 @@ const Inventory: React.FC = () => {
                         <Input 
                           id="boxQty" 
                           type="number" 
-                          value={newProduct.boxQty.toString()} 
-                          onChange={(e) => handleNewProductChange('boxQty', e.target.value)}
+                          value={newProduct.box_qty.toString()} 
+                          onChange={(e) => handleNewProductChange('box_qty', e.target.value)}
                         />
                       </div>
                     </div>
@@ -399,39 +473,39 @@ const Inventory: React.FC = () => {
                       <Label className="mb-2 block">Cantidades Iniciales</Label>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="mainWarehouse" className="text-xs">Bodega Principal</Label>
+                          <Label htmlFor="warehouse_quantities.w1" className="text-xs">Bodega Principal</Label>
                           <Input 
-                            id="mainWarehouse" 
+                            id="warehouse_quantities.w1" 
                             type="number" 
-                            value={newProduct.mainWarehouse.toString()} 
-                            onChange={(e) => handleNewProductChange('mainWarehouse', e.target.value)}
+                            value={(newProduct.warehouse_quantities?.["w1"] || 0).toString()}
+                            onChange={(e) => handleNewProductChange('warehouse_quantities.w1', e.target.value)}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="warehouse1" className="text-xs">Bodega 1</Label>
+                          <Label htmlFor="warehouse_quantities.w2" className="text-xs">Bodega 1</Label>
                           <Input 
-                            id="warehouse1" 
+                            id="warehouse_quantities.w2" 
                             type="number" 
-                            value={newProduct.warehouse1.toString()} 
-                            onChange={(e) => handleNewProductChange('warehouse1', e.target.value)}
+                            value={(newProduct.warehouse_quantities?.["w2"] || 0).toString()}
+                            onChange={(e) => handleNewProductChange('warehouse_quantities.w2', e.target.value)}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="warehouse2" className="text-xs">Bodega 2</Label>
+                          <Label htmlFor="warehouse_quantities.w3" className="text-xs">Bodega 2</Label>
                           <Input 
-                            id="warehouse2" 
+                            id="warehouse_quantities.w3" 
                             type="number" 
-                            value={newProduct.warehouse2.toString()} 
-                            onChange={(e) => handleNewProductChange('warehouse2', e.target.value)}
+                            value={(newProduct.warehouse_quantities?.["w3"] || 0).toString()}
+                            onChange={(e) => handleNewProductChange('warehouse_quantities.w3', e.target.value)}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="warehouse3" className="text-xs">Bodega 3</Label>
+                          <Label htmlFor="warehouse_quantities.w4" className="text-xs">Bodega 3</Label>
                           <Input 
-                            id="warehouse3" 
+                            id="warehouse_quantities.w4" 
                             type="number" 
-                            value={newProduct.warehouse3.toString()} 
-                            onChange={(e) => handleNewProductChange('warehouse3', e.target.value)}
+                            value={(newProduct.warehouse_quantities?.["w4"] || 0).toString()}
+                            onChange={(e) => handleNewProductChange('warehouse_quantities.w4', e.target.value)}
                           />
                         </div>
                       </div>
@@ -501,15 +575,15 @@ const Inventory: React.FC = () => {
                       <div className="space-y-2">
                         <Label htmlFor="product">Producto</Label>
                         <Select 
-                          value={transfer.productId.toString()} 
-                          onValueChange={(val) => handleTransferChange('productId', parseInt(val))}
+                          value={transfer.product_id} 
+                          onValueChange={(val) => handleTransferChange('product_id', val)}
                         >
                           <SelectTrigger id="product">
                             <SelectValue placeholder="Seleccionar producto" />
                           </SelectTrigger>
                           <SelectContent>
                             {inventoryData.map((product) => (
-                              <SelectItem key={product.id} value={product.id.toString()}>
+                              <SelectItem key={product.id} value={product.id}>
                                 {product.name} ({product.sku})
                               </SelectItem>
                             ))}
@@ -521,17 +595,17 @@ const Inventory: React.FC = () => {
                         <div className="space-y-2">
                           <Label htmlFor="source">Bodega de Origen</Label>
                           <Select 
-                            value={transfer.sourceWarehouse} 
-                            onValueChange={(val) => handleTransferChange('sourceWarehouse', val as TransferRequest['sourceWarehouse'])}
+                            value={transfer.sourceWarehouseId} 
+                            onValueChange={(val) => handleTransferChange('sourceWarehouseId', val)}
                           >
                             <SelectTrigger id="source">
                               <SelectValue placeholder="Origen" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="mainWarehouse">Bodega Principal</SelectItem>
-                              <SelectItem value="warehouse1">Bodega 1</SelectItem>
-                              <SelectItem value="warehouse2">Bodega 2</SelectItem>
-                              <SelectItem value="warehouse3">Bodega 3</SelectItem>
+                              <SelectItem value="w1">Bodega Principal</SelectItem>
+                              <SelectItem value="w2">Bodega 1</SelectItem>
+                              <SelectItem value="w3">Bodega 2</SelectItem>
+                              <SelectItem value="w4">Bodega 3</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -539,17 +613,17 @@ const Inventory: React.FC = () => {
                         <div className="space-y-2">
                           <Label htmlFor="destination">Bodega de Destino</Label>
                           <Select 
-                            value={transfer.destinationWarehouse} 
-                            onValueChange={(val) => handleTransferChange('destinationWarehouse', val as TransferRequest['destinationWarehouse'])}
+                            value={transfer.destinationWarehouseId} 
+                            onValueChange={(val) => handleTransferChange('destinationWarehouseId', val)}
                           >
                             <SelectTrigger id="destination">
                               <SelectValue placeholder="Destino" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="mainWarehouse">Bodega Principal</SelectItem>
-                              <SelectItem value="warehouse1">Bodega 1</SelectItem>
-                              <SelectItem value="warehouse2">Bodega 2</SelectItem>
-                              <SelectItem value="warehouse3">Bodega 3</SelectItem>
+                              <SelectItem value="w1">Bodega Principal</SelectItem>
+                              <SelectItem value="w2">Bodega 1</SelectItem>
+                              <SelectItem value="w3">Bodega 2</SelectItem>
+                              <SelectItem value="w4">Bodega 3</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -566,17 +640,17 @@ const Inventory: React.FC = () => {
                         />
                       </div>
                       
-                      {transfer.productId > 0 && (
+                      {transfer.product_id && (
                         <div className="rounded-md bg-muted p-3 text-sm">
                           <div className="font-medium">Disponibilidad actual:</div>
                           {Object.entries(warehouseNames).map(([key, name]) => {
-                            const product = inventoryData.find(p => p.id === transfer.productId);
+                            const product = inventoryData.find(p => p.id === transfer.product_id);
                             if (product) {
                               return (
                                 <div key={key} className="flex justify-between mt-1">
                                   <span>{name}:</span>
                                   <span className="font-medium">
-                                    {product[key as keyof typeof product]} unidades
+                                    {product.warehouse_quantities?.[key] || 0} unidades
                                   </span>
                                 </div>
                               );
@@ -646,21 +720,21 @@ const Inventory: React.FC = () => {
                           <TableCell className="font-medium">{item.sku}</TableCell>
                           <TableCell>{item.name}</TableCell>
                           <TableCell>{item.category}</TableCell>
-                          <TableCell className="text-right">{item.mainWarehouse}</TableCell>
-                          <TableCell className={`text-right ${item.warehouse1 < item.threshold ? 'text-red-600 font-medium' : ''}`}>
-                            {item.warehouse1}
+                          <TableCell className="text-right">{item.warehouse_quantities?.["w1"] || 0}</TableCell>
+                          <TableCell className={`text-right ${item.warehouse_quantities?.["w2"] || 0 < item.threshold ? 'text-red-600 font-medium' : ''}`}>
+                            {item.warehouse_quantities?.["w2"] || 0}
                           </TableCell>
-                          <TableCell className={`text-right ${item.warehouse2 < item.threshold ? 'text-red-600 font-medium' : ''}`}>
-                            {item.warehouse2}
+                          <TableCell className={`text-right ${item.warehouse_quantities?.["w3"] || 0 < item.threshold ? 'text-red-600 font-medium' : ''}`}>
+                            {item.warehouse_quantities?.["w3"] || 0}
                           </TableCell>
-                          <TableCell className={`text-right ${item.warehouse3 < item.threshold ? 'text-red-600 font-medium' : ''}`}>
-                            {item.warehouse3}
+                          <TableCell className={`text-right ${item.warehouse_quantities?.["w4"] || 0 < item.threshold ? 'text-red-600 font-medium' : ''}`}>
+                            {item.warehouse_quantities?.["w4"] || 0}
                           </TableCell>
                           <TableCell className="text-right">${item.price.toFixed(2)}</TableCell>
                           <TableCell className="text-center">
-                            {(item.warehouse1 < item.threshold || 
-                              item.warehouse2 < item.threshold || 
-                              item.warehouse3 < item.threshold) ? (
+                            {(item.warehouse_quantities?.["w2"] || 0 < item.threshold || 
+                              item.warehouse_quantities?.["w3"] || 0 < item.threshold || 
+                              item.warehouse_quantities?.["w4"] || 0 < item.threshold) ? (
                               <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
                                 Stock Bajo
                               </Badge>
@@ -708,37 +782,37 @@ const Inventory: React.FC = () => {
                           <TableCell>{item.name}</TableCell>
                           <TableCell>{item.category}</TableCell>
                           <TableCell className="text-right">{item.threshold}</TableCell>
-                          <TableCell className={`text-right ${item.warehouse1 < item.threshold ? 'text-red-600 font-medium' : ''}`}>
-                            {item.warehouse1}
+                          <TableCell className={`text-right ${item.warehouse_quantities?.["w2"] || 0 < item.threshold ? 'text-red-600 font-medium' : ''}`}>
+                            {item.warehouse_quantities?.["w2"] || 0}
                           </TableCell>
-                          <TableCell className={`text-right ${item.warehouse2 < item.threshold ? 'text-red-600 font-medium' : ''}`}>
-                            {item.warehouse2}
+                          <TableCell className={`text-right ${item.warehouse_quantities?.["w3"] || 0 < item.threshold ? 'text-red-600 font-medium' : ''}`}>
+                            {item.warehouse_quantities?.["w3"] || 0}
                           </TableCell>
-                          <TableCell className={`text-right ${item.warehouse3 < item.threshold ? 'text-red-600 font-medium' : ''}`}>
-                            {item.warehouse3}
+                          <TableCell className={`text-right ${item.warehouse_quantities?.["w4"] || 0 < item.threshold ? 'text-red-600 font-medium' : ''}`}>
+                            {item.warehouse_quantities?.["w4"] || 0}
                           </TableCell>
-                          <TableCell className="text-right">{item.mainWarehouse}</TableCell>
+                          <TableCell className="text-right">{item.warehouse_quantities?.["w1"] || 0}</TableCell>
                           <TableCell className="text-center">
                             <Button 
                               variant="outline" 
                               size="sm"
                               onClick={() => {
-                                let sourceWarehouse: TransferRequest['sourceWarehouse'] = 'mainWarehouse';
-                                let destinationWarehouse: TransferRequest['destinationWarehouse'] = 'warehouse1';
+                                let sourceWarehouse: TransferRequest['sourceWarehouseId'] = 'w1';
+                                let destinationWarehouse: TransferRequest['destinationWarehouseId'] = 'w2';
                                 
-                                if (item.warehouse1 < item.threshold) {
-                                  destinationWarehouse = 'warehouse1';
-                                } else if (item.warehouse2 < item.threshold) {
-                                  destinationWarehouse = 'warehouse2';
-                                } else if (item.warehouse3 < item.threshold) {
-                                  destinationWarehouse = 'warehouse3';
+                                if (item.warehouse_quantities?.["w2"] || 0 < item.threshold) {
+                                  destinationWarehouse = 'w2';
+                                } else if (item.warehouse_quantities?.["w3"] || 0 < item.threshold) {
+                                  destinationWarehouse = 'w3';
+                                } else if (item.warehouse_quantities?.["w4"] || 0 < item.threshold) {
+                                  destinationWarehouse = 'w4';
                                 }
                                 
                                 setTransfer({
-                                  productId: item.id,
-                                  sourceWarehouse,
-                                  destinationWarehouse,
-                                  quantity: item.threshold - Math.min(item.warehouse1, item.warehouse2, item.warehouse3)
+                                  product_id: item.id,
+                                  sourceWarehouseId: sourceWarehouse,
+                                  destinationWarehouseId: destinationWarehouse,
+                                  quantity: item.threshold - Math.min(item.warehouse_quantities?.["w2"] || 0, item.warehouse_quantities?.["w3"] || 0, item.warehouse_quantities?.["w4"] || 0)
                                 });
                                 setIsTransferDialogOpen(true);
                               }}

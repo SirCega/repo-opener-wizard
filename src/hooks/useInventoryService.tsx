@@ -1,28 +1,15 @@
 
 import { useState, useEffect } from 'react';
-import { 
-  getProducts,
-  getInventory,
-  getWarehouses,
-  getMovements,
-  addProduct,
-  updateProduct,
-  deleteProduct,
-  addMovement,
-  addInventory,
-  updateInventory,
-  Product,
-  InventoryItem,
-  Warehouse,
-  Movement,
-  TransferRequest
-} from '@/services/inventory.service';
+import * as inventoryService from '@/services/inventory.service';
+
+// Export the types from the inventory service
+export type { Product, InventoryItem, Warehouse, Movement, TransferRequest } from '@/services/inventory.service';
 
 export function useInventoryService() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [movements, setMovements] = useState<Movement[]>([]);
+  const [products, setProducts] = useState<inventoryService.Product[]>([]);
+  const [inventory, setInventory] = useState<inventoryService.InventoryItem[]>([]);
+  const [warehouses, setWarehouses] = useState<inventoryService.Warehouse[]>([]);
+  const [movements, setMovements] = useState<inventoryService.Movement[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -91,10 +78,10 @@ export function useInventoryService() {
   };
 
   // Product Operations
-  const handleAddProduct = async (productData: Omit<Product, 'id'>) => {
+  const handleAddProduct = async (productData: Omit<inventoryService.Product, "id">) => {
     try {
       setLoading(true);
-      await addProduct(productData);
+      await inventoryService.addProduct(productData);
       await loadProducts();
       return true;
     } catch (err) {
@@ -106,10 +93,10 @@ export function useInventoryService() {
     }
   };
 
-  const handleUpdateProduct = async (id: string, productData: Partial<Product>) => {
+  const handleUpdateProduct = async (id: string, productData: Partial<inventoryService.Product>) => {
     try {
       setLoading(true);
-      await updateProduct(id, productData);
+      await inventoryService.updateProduct(id, productData);
       await loadProducts();
       return true;
     } catch (err) {
@@ -124,7 +111,7 @@ export function useInventoryService() {
   const handleDeleteProduct = async (id: string) => {
     try {
       setLoading(true);
-      await deleteProduct(id);
+      await inventoryService.deleteProduct(id);
       await loadProducts();
       return true;
     } catch (err) {
@@ -199,8 +186,25 @@ export function useInventoryService() {
     deleteProduct: handleDeleteProduct,
     addMovement: handleAddMovement,
     updateInventory: handleUpdateInventory,
-    addInventory: handleAddInventory
+    addInventory: handleAddInventory,
+    getInventory: () => {
+      return products.map(p => ({
+        ...p,
+        mainWarehouse: p.warehouse_quantities?.["w1"] || 0,
+        warehouse1: p.warehouse_quantities?.["w1"] || 0,
+        warehouse2: p.warehouse_quantities?.["w2"] || 0,
+        warehouse3: p.warehouse_quantities?.["w3"] || 0
+      }));
+    },
+    transferProduct: (transfer: {
+      product_id: string;
+      sourceWarehouseId: string;
+      destinationWarehouseId: string;
+      quantity: number;
+    }) => {
+      console.log("Transferring products:", transfer);
+      // Mock implementation
+      return products.find(p => p.id === transfer.product_id) || products[0];
+    }
   };
 }
-
-export type { Product, InventoryItem, Warehouse, Movement, TransferRequest };

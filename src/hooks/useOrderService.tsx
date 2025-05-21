@@ -1,19 +1,17 @@
-
 import { useState, useEffect } from 'react';
 import * as orderService from '@/services/order.service';
 import { User } from '@/types/auth-types';
-import type { Order, Invoice, Delivery, OrderItem } from '@/types/order-types';
 
-// Re-exporting types
-export type { Order, OrderItem, Invoice, Delivery } from '@/types/order-types';
+// Re-exporting types from order service
+export type { Order, OrderItem, Invoice, Delivery } from '@/services/order.service';
 
 // Define Customer type
 export type Customer = User;
 
 export function useOrderService() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [orders, setOrders] = useState<orderService.Order[]>([]);
+  const [invoices, setInvoices] = useState<orderService.Invoice[]>([]);
+  const [deliveries, setDeliveries] = useState<orderService.Delivery[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -130,7 +128,7 @@ export function useOrderService() {
     loadDeliveries,
     loadCustomers,
     getOrder,
-    updateOrder,
+    updateOrder: orderService.updateOrderStatus,
     payInvoice: handlePayInvoice,
   };
 }
