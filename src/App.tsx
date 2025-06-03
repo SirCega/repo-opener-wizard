@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { CustomAuthProvider, useCustomAuth } from "@/hooks/useCustomAuth";
 import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
 import Products from "./pages/Products";
@@ -22,7 +22,7 @@ import React from "react";
 const queryClient = new QueryClient();
 
 // Protected route component with role-based access
-// This is INSIDE the AuthProvider context
+// This is INSIDE the CustomAuthProvider context
 const ProtectedRouteContent = ({ 
   children, 
   allowedRoles = [] 
@@ -30,7 +30,7 @@ const ProtectedRouteContent = ({
   children: React.ReactNode, 
   allowedRoles?: string[] 
 }) => {
-  const { user, isLoading, hasAccess } = useAuth();
+  const { user, isLoading, hasAccess } = useCustomAuth();
 
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Cargando...</div>;
@@ -53,7 +53,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <BrowserRouter>
-        <AuthProvider>
+        <CustomAuthProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/login" element={<Navigate to="/auth" replace />} />
@@ -112,7 +112,7 @@ const App = () => (
           </Routes>
           <Toaster />
           <Sonner />
-        </AuthProvider>
+        </CustomAuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
