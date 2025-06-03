@@ -16,13 +16,16 @@ export const CustomAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Check for existing session on mount
   useEffect(() => {
+    console.log("CustomAuthProvider: Checking for existing session");
     const storedUser = localStorage.getItem('liquistock_user');
     if (storedUser) {
       try {
         const userData = JSON.parse(storedUser);
+        console.log("Found stored user:", userData);
         setUser(userData);
         setSession({ user: userData }); // Create a mock session
       } catch (error) {
+        console.error("Error parsing stored user:", error);
         localStorage.removeItem('liquistock_user');
       }
     }
@@ -32,9 +35,10 @@ export const CustomAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      console.log("Iniciando sesión con:", email);
+      console.log("CustomAuth: Iniciando sesión con:", email);
       const { user: userData } = await customAuthService.signInWithCustomAuth(email, password);
       
+      console.log("Login successful, user data:", userData);
       setUser(userData);
       setSession({ user: userData });
       
@@ -113,8 +117,12 @@ export const CustomAuthProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Function to get all users (only admin)
   const getAllUsers = async (): Promise<User[]> => {
-    // This would need to be implemented based on your needs
-    return [];
+    try {
+      return await customAuthService.getAllUsersFromTable();
+    } catch (error) {
+      console.error("Error getting all users:", error);
+      return [];
+    }
   };
 
   // Function to check access based on roles

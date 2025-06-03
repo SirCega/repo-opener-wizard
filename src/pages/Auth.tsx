@@ -27,7 +27,9 @@ const Auth: React.FC = () => {
 
   // Si ya estamos autenticados, redirigir al dashboard
   useEffect(() => {
+    console.log("Auth component: checking auth status", { user: user?.id, session: session?.user?.id });
     if (user && session) {
+      console.log("User is authenticated, redirecting to dashboard");
       navigate('/dashboard');
     }
   }, [user, session, navigate]);
@@ -121,12 +123,9 @@ const Auth: React.FC = () => {
                     {isLoading ? 'Cargando...' : 'Iniciar Sesión'}
                   </Button>
                   <div className="mt-4 text-center text-sm text-muted-foreground">
-                    <p>Usuarios de prueba (contraseña: <strong>password</strong>):</p>
+                    <p>Prueba con cualquier email de tu tabla users</p>
                     <p className="mt-1 text-xs">
-                      admin@liquistock.com (Administrador)<br/>
-                      oficinista@liquistock.com (Oficinista)<br/>
-                      bodeguero@liquistock.com (Bodeguero)<br/>
-                      cliente1@gmail.com (Cliente)
+                      Contraseña: <strong>password</strong>
                     </p>
                   </div>
                 </CardFooter>
