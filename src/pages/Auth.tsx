@@ -1,13 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { useCustomAuth } from '@/hooks/useCustomAuth';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import Logo from '@/components/Layout/Logo';
 import { useToast } from '@/hooks/use-toast';
 import { Wine } from 'lucide-react';
 
@@ -22,7 +21,7 @@ const Auth: React.FC = () => {
   const [registerName, setRegisterName] = useState('');
   const [registerAddress, setRegisterAddress] = useState('');
   
-  const { login, registerClient, isLoading, user, session } = useAuth();
+  const { login, registerClient, isLoading, user, session } = useCustomAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -117,10 +116,19 @@ const Auth: React.FC = () => {
                     />
                   </div>
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="flex flex-col">
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Cargando...' : 'Iniciar Sesión'}
                   </Button>
+                  <div className="mt-4 text-center text-sm text-muted-foreground">
+                    <p>Usuarios de prueba (contraseña: <strong>password</strong>):</p>
+                    <p className="mt-1 text-xs">
+                      admin@liquistock.com (Administrador)<br/>
+                      oficinista@liquistock.com (Oficinista)<br/>
+                      bodeguero@liquistock.com (Bodeguero)<br/>
+                      cliente1@gmail.com (Cliente)
+                    </p>
+                  </div>
                 </CardFooter>
               </form>
             </Card>
